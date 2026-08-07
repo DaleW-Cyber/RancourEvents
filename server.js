@@ -10,11 +10,12 @@ const KOFI_URL = 'https://ko-fi.com/daleeuw';
 
 let cache = { at: 0, data: null };
 let itemCache = { at: 0, data: null };
+let statsCache = { at: 0, data: null };
 
 async function fetchCsv(sheet, range) {
   const params = new URLSearchParams({ tqx: 'out:csv', sheet, range });
   const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?${params}`;
-  const res = await fetch(url, { redirect: 'follow', headers: { 'User-Agent': 'RancourEvents/0.6' } });
+  const res = await fetch(url, { redirect: 'follow', headers: { 'User-Agent': 'RancourEvents/0.7' } });
   if (!res.ok) throw new Error(`Google Sheets returned ${res.status} for ${sheet}`);
   const text = await res.text();
   if (text.trim().startsWith('<!DOCTYPE html') || text.includes('accounts.google.com')) {
@@ -75,7 +76,7 @@ function parseBountyLeaders(rows) {
 
 function parseTileRequirements(rows, tiles) {
   const tileMap = new Map(tiles.map(tile => [tile.id, tile]));
-  const blockStarts = [2, 6, 10, 14, 18]; // BI, BM, BQ, BU, BY when range begins at BG
+  const blockStarts = [2, 6, 10, 14, 18];
 
   for (const start of blockStarts) {
     for (let r = 0; r < rows.length - 2; r++) {
@@ -144,9 +145,7 @@ function parseRecentDrops(rows) {
   }
 
   drops.sort((a, b) => {
-    if (a.dropNumber !== null && b.dropNumber !== null && a.dropNumber !== b.dropNumber) {
-      return b.dropNumber - a.dropNumber;
-    }
+    if (a.dropNumber !== null && b.dropNumber !== null && a.dropNumber !== b.dropNumber) return b.dropNumber - a.dropNumber;
     if (a.dropNumber !== null && b.dropNumber === null) return -1;
     if (a.dropNumber === null && b.dropNumber !== null) return 1;
     return b.rowIndex - a.rowIndex;
@@ -163,27 +162,12 @@ function parseTeam(rows, requirementRows, dropRows, index, fallbackName) {
   for (const row of rows) {
     const tileNo = Number(row[0]);
     if (tileNo >= 1 && tileNo <= 36 && row[1] && row[2]) {
-      tiles.push({
-        id: tileNo,
-        content: row[1] || '',
-        title: row[2] || '',
-        rule: row[3] || '',
-        type: row[4] || '',
-        difficulty: row[5] || '',
-        progress: pct(row[6]),
-        requirements: null,
-      });
+      tiles.push({ id: tileNo, content: row[1] || '', title: row[2] || '', rule: row[3] || '', type: row[4] || '', difficulty: row[5] || '', progress: pct(row[6]), requirements: null });
     }
 
     const memberNo = Number(row[10]);
     if (memberNo > 0 && row[12]) {
-      roster.push({
-        number: memberNo,
-        discordId: row[11] || '',
-        name: row[12],
-        timezone: row[13] || '',
-        rank: row[14] || '',
-      });
+      roster.push({ number: memberNo, discordId: row[11] || '', name: row[12], timezone: row[13] || '', rank: row[14] || '' });
     }
 
     if (String(row[2]).trim() === 'Team Name:' && row[3]) teamName = row[3];
@@ -191,9 +175,52 @@ function parseTeam(rows, requirementRows, dropRows, index, fallbackName) {
 
   parseTileRequirements(requirementRows, tiles);
   const drops = parseRecentDrops(dropRows);
-
   const score = tiles.length ? tiles.reduce((a,t)=>a+t.progress,0)/tiles.length : 0;
   return { id: `team-${index+1}`, number: `Team ${String(index+1).padStart(2,'0')}`, name: teamName, score, roster, tiles, drops };
+}
+
+function statsCells(row, start, width) {
+  return Array.from({ length: width }, (_, i) => String(row?.[start + i] ?? '').trim());
+}
+
+function statsPanel(rows, { fallbackTitle, start, width, titleRow, headerRow, dataStart, dataEnd, totalRow, note }) {
+  return {
+    title: String(rows?.[titleRow]?.[start] ?? '').trim() || fallbackTitle,
+    headers: statsCells(rows?.[headerRow], start, width),
+    rows: rows.slice(dataStart, dataEnd + 1).map(row => statsCells(row, start, width)),
+    total: totalRow === null || totalRow === undefined ? null : statsCells(rows?.[totalRow], start, width),
+    note: note || '',
+  };
+}
+
+async function loadStats() {
+  if (statsCache.data && Date.now() - statsCache.at < CACHE_MS) return statsCache.data;
+  const rows = await fetchCsv('Bingo Stats', 'B2:U22');
+
+  const teamPanels = [
+    statsPanel(rows, { fallbackTitle: 'Tiles Earned', start: 0, width: 4, titleRow: 0, headerRow: 1, dataStart: 2, dataEnd: 4, totalRow: 5 }),
+    statsPanel(rows, { fallbackTitle: 'Team EHB', start: 5, width: 3, titleRow: 0, headerRow: 1, dataStart: 2, dataEnd: 4, totalRow: 5 }),
+    statsPanel(rows, { fallbackTitle: 'Pet Drops', start: 9, width: 3, titleRow: 0, headerRow: 1, dataStart: 2, dataEnd: 4, totalRow: 5 }),
+    statsPanel(rows, { fallbackTitle: 'GP Made (Verified Drops)', start: 13, width: 3, titleRow: 0, headerRow: 1, dataStart: 2, dataEnd: 4, totalRow: 5 }),
+    statsPanel(rows, { fallbackTitle: 'Spoon Metric', start: 17, width: 3, titleRow: 0, headerRow: 1, dataStart: 2, dataEnd: 4, totalRow: 5, note: 'Lower is better' }),
+  ];
+
+  const individualPanels = [
+    statsPanel(rows, { fallbackTitle: 'Drop Points Earned - Individual', start: 0, width: 3, titleRow: 7, headerRow: 8, dataStart: 9, dataEnd: 18, totalRow: 19 }),
+    statsPanel(rows, { fallbackTitle: 'EHB - Individual', start: 5, width: 3, titleRow: 7, headerRow: 8, dataStart: 9, dataEnd: 18, totalRow: 19 }),
+    statsPanel(rows, { fallbackTitle: 'Pet Drops - Individual', start: 9, width: 3, titleRow: 7, headerRow: 8, dataStart: 9, dataEnd: 18, totalRow: 19 }),
+    statsPanel(rows, { fallbackTitle: 'GP Made (Verified Drops) - Individual', start: 13, width: 3, titleRow: 7, headerRow: 8, dataStart: 9, dataEnd: 18, totalRow: 19 }),
+  ];
+
+  const data = {
+    refreshedAt: new Date().toISOString(),
+    sheetUrl: `https://docs.google.com/spreadsheets/d/${SHEET_ID}/edit?gid=244034257#gid=244034257`,
+    teamCount: 3,
+    teamPanels,
+    individualPanels,
+  };
+  statsCache = { at: Date.now(), data };
+  return data;
 }
 
 async function loadEvent() {
@@ -220,15 +247,13 @@ async function loadEvent() {
     parseTeam(t3, r3, d3, 2, teamNames[2] || 'Team 3'),
   ];
 
-  const bounties = parseBountyLeaders(bountyRows);
-
   const data = {
     title: 'Rancour PvM 2026 Bingo',
     workbookTitle: 'Rancour Summer Bingo 2026',
     sheetUrl: `https://docs.google.com/spreadsheets/d/${SHEET_ID}/edit`,
     refreshedAt: new Date().toISOString(),
     teams,
-    bounties,
+    bounties: parseBountyLeaders(bountyRows),
   };
   cache = { at: Date.now(), data };
   return data;
@@ -243,38 +268,14 @@ async function loadItems() {
 
   for (const row of rows) {
     const tile = Number(row[0]);
-    if (tile >= 1 && tile <= 36 && row[3]) {
-      items.push({
-        tile,
-        content: row[1] || '',
-        tileName: row[2] || '',
-        item: row[3] || '',
-        dropPoints: row[4] || '',
-        price: row[5] || '',
-      });
-    }
+    if (tile >= 1 && tile <= 36 && row[3]) items.push({ tile, content: row[1] || '', tileName: row[2] || '', item: row[3] || '', dropPoints: row[4] || '', price: row[5] || '' });
 
     const petName = String(row[7] || '').trim();
-    if (['Boss Pets','Skilling Pets','Other Pets'].includes(petName)) {
-      petCategory = petName;
-      continue;
-    }
-    if (petName && petName !== 'Drop Rate' && petName !== 'Include/Exclude') {
-      pets.push({
-        category: petCategory,
-        name: petName,
-        dropRate: row[8] || '',
-        status: row[9] || '',
-      });
-    }
+    if (['Boss Pets','Skilling Pets','Other Pets'].includes(petName)) { petCategory = petName; continue; }
+    if (petName && petName !== 'Drop Rate' && petName !== 'Include/Exclude') pets.push({ category: petCategory, name: petName, dropRate: row[8] || '', status: row[9] || '' });
   }
 
-  const data = {
-    refreshedAt: new Date().toISOString(),
-    sheetUrl: `https://docs.google.com/spreadsheets/d/${SHEET_ID}/edit?gid=1301329739#gid=1301329739`,
-    items,
-    pets,
-  };
+  const data = { refreshedAt: new Date().toISOString(), sheetUrl: `https://docs.google.com/spreadsheets/d/${SHEET_ID}/edit?gid=1301329739#gid=1301329739`, items, pets };
   itemCache = { at: Date.now(), data };
   return data;
 }
@@ -286,7 +287,7 @@ async function renderDashboard() {
 
   const kofiButton = `<a class="btn" href="${KOFI_URL}" target="_blank" rel="noopener noreferrer" style="background:#72a4f2;border-color:#94bdf8;color:#fff;gap:7px" aria-label="Support me on Ko-fi"><span aria-hidden="true">☕</span> Support me on Ko-fi</a>`;
   html = html.replace('<a id="sheetLink"', `${kofiButton}<a id="sheetLink"`);
-  html = html.replace('<button class="osrs-btn" id="refreshBtn">', '<a class="osrs-btn" href="/items" style="text-decoration:none">Item List</a><button class="osrs-btn" id="refreshBtn">');
+  html = html.replace('<button class="osrs-btn" id="refreshBtn">', '<a class="osrs-btn" href="/" style="text-decoration:none">Stats Home</a><a class="osrs-btn" href="/items" style="text-decoration:none">Item List</a><button class="osrs-btn" id="refreshBtn">');
 
   const requirementCss = `<style>
     .requirements{margin:14px 0;border:2px inset #957a4c;background:#bda778}
@@ -350,7 +351,7 @@ async function renderDashboard() {
       const title = String(tile?.title || '').trim().toLowerCase();
       if(!ref) return false;
       if(ref === title || ref === String(tile.id) || ref === 'tile '+tile.id || ref === '#'+tile.id) return true;
-      const match = ref.match(/^tile\s*#?\s*(\d+)\b/i);
+      const match = ref.match(/^tile\\s*#?\\s*(\\d+)\\b/i);
       return !!match && Number(match[1]) === Number(tile.id);
     }
 
@@ -368,22 +369,16 @@ async function renderDashboard() {
       const evidence = document.getElementById('devidence');
       if(evidence){
         const p = tileProgress(tile);
-        evidence.textContent = contributions.length
-          ? 'These drops are linked to this tile in the team worksheet.'
-          : p > 0
-            ? 'Progress is recorded for this tile, but there are no linked drop rows currently available.'
-            : 'No approved progress or linked drops are currently recorded for this tile.';
+        evidence.textContent = contributions.length ? 'These drops are linked to this tile in the team worksheet.' : p > 0 ? 'Progress is recorded for this tile, but there are no linked drop rows currently available.' : 'No approved progress or linked drops are currently recorded for this tile.';
       }
     };
 
     const standingsFrame = document.getElementById('leaderboard')?.closest('.frame');
-    if(standingsFrame && !document.getElementById('recentDrops')){
-      standingsFrame.insertAdjacentHTML('afterend','<section class="frame"><div class="frame-title">Recent Drops</div><div id="recentDrops"><div class="empty">No drops logged yet</div></div></section>');
-    }
+    if(standingsFrame && !document.getElementById('recentDrops')) standingsFrame.insertAdjacentHTML('afterend','<section class="frame"><div class="frame-title">Recent Drops</div><div id="recentDrops"><div class="empty">No drops logged yet</div></div></section>');
 
     function formatBountyValue(bounty, value){
       const n = Number(value || 0);
-      const formatted = Number.isInteger(n) ? String(n) : n.toFixed(2).replace(/0+$/,'').replace(/\.$/,'');
+      const formatted = Number.isInteger(n) ? String(n) : n.toFixed(2).replace(/0+$/,'').replace(/\\.$/,'');
       if(bounty.unit === 'Pets') return formatted + (n === 1 ? ' pet' : ' pets');
       return formatted + ' ' + (bounty.unit || '');
     }
@@ -406,52 +401,46 @@ async function renderDashboard() {
       if(!box || !data || !data.teams?.length) return;
       const team = data.teams[state.team] || data.teams[0];
       const drops = Array.isArray(team?.drops) ? team.drops.slice(0,10) : [];
-      box.innerHTML = drops.length
-        ? drops.map(entry => '<div class="recent-drop"><div class="recent-drop-name">'+esc(entry.drop)+'</div><div class="recent-drop-player">'+esc(entry.member)+'</div></div>').join('')
-        : '<div class="empty">No drops logged for this team yet.</div>';
+      box.innerHTML = drops.length ? drops.map(entry => '<div class="recent-drop"><div class="recent-drop-name">'+esc(entry.drop)+'</div><div class="recent-drop-player">'+esc(entry.member)+'</div></div>').join('') : '<div class="empty">No drops logged for this team yet.</div>';
     }
 
     const originalRenderRightForDrops = renderRight;
-    renderRight = function(){
-      originalRenderRightForDrops();
-      renderBountyBoard();
-      renderRecentDrops();
-    };
+    renderRight = function(){ originalRenderRightForDrops(); renderBountyBoard(); renderRecentDrops(); };
     if(data){renderBountyBoard();renderRecentDrops()}
   </script>`;
   html = html.replace('</body>', `${requirementScript}</body>`);
   return html;
 }
 
+async function renderItemsPage() {
+  let html = await readFile(new URL('./public/items.html', import.meta.url), 'utf8');
+  html = html.replace('<a class="osrs-btn red" href="/">← Bingo Board</a>', '<a class="osrs-btn" href="/">Stats Home</a><a class="osrs-btn red" href="/bingo">← Bingo Board</a>');
+  return html;
+}
+
 app.get('/health', (_req,res)=>res.json({ status: 'ok' }));
 app.get('/api/event', async (_req,res) => {
-  try {
-    const data = await loadEvent();
-    res.set('Cache-Control','public, max-age=30');
-    res.json(data);
-  } catch (error) {
-    console.error('Event data refresh failed:', error);
-    res.status(503).json({ error: error.message });
-  }
+  try { const data = await loadEvent(); res.set('Cache-Control','public, max-age=30'); res.json(data); }
+  catch (error) { console.error('Event data refresh failed:', error); res.status(503).json({ error: error.message }); }
 });
 app.get('/api/items', async (_req,res) => {
-  try {
-    const data = await loadItems();
-    res.set('Cache-Control','public, max-age=30');
-    res.json(data);
-  } catch (error) {
-    console.error('Item list refresh failed:', error);
-    res.status(503).json({ error: error.message });
-  }
+  try { const data = await loadItems(); res.set('Cache-Control','public, max-age=30'); res.json(data); }
+  catch (error) { console.error('Item list refresh failed:', error); res.status(503).json({ error: error.message }); }
 });
-app.get('/', async (_req,res,next) => {
-  try {
-    res.type('html').send(await renderDashboard());
-  } catch (error) {
-    next(error);
-  }
+app.get('/api/stats', async (_req,res) => {
+  try { const data = await loadStats(); res.set('Cache-Control','public, max-age=30'); res.json(data); }
+  catch (error) { console.error('Bingo stats refresh failed:', error); res.status(503).json({ error: error.message }); }
 });
-app.get('/items', (_req,res)=>res.sendFile(new URL('./public/items.html', import.meta.url).pathname));
+app.get('/', (_req,res)=>res.sendFile(new URL('./public/stats.html', import.meta.url).pathname));
+app.get('/stats', (_req,res)=>res.sendFile(new URL('./public/stats.html', import.meta.url).pathname));
+app.get('/bingo', async (_req,res,next) => {
+  try { res.type('html').send(await renderDashboard()); }
+  catch (error) { next(error); }
+});
+app.get('/items', async (_req,res,next) => {
+  try { res.type('html').send(await renderItemsPage()); }
+  catch (error) { next(error); }
+});
 app.use(express.static('public'));
-app.get('*', (_req,res)=>res.sendFile(new URL('./public/index.html', import.meta.url).pathname));
+app.get('*', (_req,res)=>res.status(404).sendFile(new URL('./public/stats.html', import.meta.url).pathname));
 app.listen(PORT, '0.0.0.0', ()=>console.log(`Rancour Events listening on ${PORT}`));

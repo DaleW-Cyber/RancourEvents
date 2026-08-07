@@ -143,6 +143,7 @@ async function renderDashboard() {
   let html = await readFile(fileUrl, 'utf8');
   const kofiButton = `<a class="btn" href="${KOFI_URL}" target="_blank" rel="noopener noreferrer" style="background:#72a4f2;border-color:#94bdf8;color:#fff;gap:7px" aria-label="Support me on Ko-fi"><span aria-hidden="true">☕</span> Support me on Ko-fi</a>`;
   html = html.replace('<a id="sheetLink"', `${kofiButton}<a id="sheetLink"`);
+  html = html.replace('<button class="osrs-btn" id="refreshBtn">', '<a class="osrs-btn" href="/items" style="text-decoration:none">Item List</a><button class="osrs-btn" id="refreshBtn">');
   return html;
 }
 

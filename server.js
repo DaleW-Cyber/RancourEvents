@@ -14,7 +14,7 @@ let itemCache = { at: 0, data: null };
 async function fetchCsv(sheet, range) {
   const params = new URLSearchParams({ tqx: 'out:csv', sheet, range });
   const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?${params}`;
-  const res = await fetch(url, { redirect: 'follow', headers: { 'User-Agent': 'RancourEvents/0.5' } });
+  const res = await fetch(url, { redirect: 'follow', headers: { 'User-Agent': 'RancourEvents/0.6' } });
   if (!res.ok) throw new Error(`Google Sheets returned ${res.status} for ${sheet}`);
   const text = await res.text();
   if (text.trim().startsWith('<!DOCTYPE html') || text.includes('accounts.google.com')) {
@@ -26,6 +26,51 @@ async function fetchCsv(sheet, range) {
 function pct(value) {
   const n = Number(String(value ?? '').replace('%','').trim());
   return Number.isFinite(n) ? n : 0;
+}
+
+function metricNumber(value) {
+  const text = String(value ?? '').trim();
+  if (!text || /^-+$/.test(text)) return 0;
+  const cleaned = text.replace(/,/g, '').replace(/[^\d.+-]/g, '');
+  const n = cleaned ? Number(cleaned) : NaN;
+  return Number.isFinite(n) ? n : 0;
+}
+
+function parseBountyPlayer(value) {
+  const text = String(value ?? '').trim();
+  const match = text.match(/^(.*?)\s+-\s+(Team\s+\d+)$/i);
+  return match
+    ? { name: match[1].trim(), team: match[2].replace(/team/i, 'Team').trim() }
+    : { name: text, team: '' };
+}
+
+function parseBountyLeaders(rows) {
+  const specs = [
+    { name: 'Most Nightmare / PNM KC', prize: 25, start: 0, unit: 'KC' },
+    { name: 'Most Mad Angel KC', prize: 25, start: 4, unit: 'KC' },
+    { name: 'Most HMT KC', prize: 25, start: 8, unit: 'KC' },
+    { name: 'Most CM KC', prize: 25, start: 12, unit: 'KC' },
+    { name: 'Most EHB Earned', prize: 25, start: 16, unit: 'EHB' },
+    { name: 'Most Pets', prize: 25, start: 20, unit: 'Pets' },
+  ];
+
+  return specs.map(spec => {
+    const entries = [];
+    for (const row of rows.slice(1)) {
+      const playerText = String(row?.[spec.start + 1] ?? '').trim();
+      if (!playerText || playerText === 'Player') continue;
+      const value = metricNumber(row?.[spec.start + 2]);
+      const player = parseBountyPlayer(playerText);
+      entries.push({ ...player, value });
+    }
+
+    const leadingValue = entries.reduce((max, entry) => Math.max(max, entry.value), 0);
+    const leaders = leadingValue > 0
+      ? entries.filter(entry => entry.value === leadingValue).map(({ name, team, value }) => ({ name, team, value }))
+      : [];
+
+    return { ...spec, leadingValue, leaders };
+  });
 }
 
 function parseTileRequirements(rows, tiles) {
@@ -154,7 +199,7 @@ function parseTeam(rows, requirementRows, dropRows, index, fallbackName) {
 async function loadEvent() {
   if (cache.data && Date.now() - cache.at < CACHE_MS) return cache.data;
 
-  const [summary, t1, t2, t3, r1, r2, r3, d1, d2, d3] = await Promise.all([
+  const [summary, t1, t2, t3, r1, r2, r3, d1, d2, d3, bountyRows] = await Promise.all([
     fetchCsv('Summary Board','A1:Z64'),
     fetchCsv('Team 01','AB2:AP50'),
     fetchCsv('Team 02','AB2:AP50'),
@@ -165,6 +210,7 @@ async function loadEvent() {
     fetchCsv('Team 01','AX2:BA615'),
     fetchCsv('Team 02','AX2:BA615'),
     fetchCsv('Team 03','AX2:BA615'),
+    fetchCsv('Bounty Tracker','B3:X20'),
   ]);
 
   const teamNames = [summary?.[2]?.[15], summary?.[2]?.[16], summary?.[2]?.[17]];
@@ -174,14 +220,7 @@ async function loadEvent() {
     parseTeam(t3, r3, d3, 2, teamNames[2] || 'Team 3'),
   ];
 
-  const bounties = [
-    { name: 'Most Nightmare / PNM KC', prize: 25 },
-    { name: 'Most Mad Angel KC', prize: 25 },
-    { name: 'Most HMT KC', prize: 25 },
-    { name: 'Most CM KC', prize: 25 },
-    { name: 'Most EHB Earned', prize: 25 },
-    { name: 'Most Pets', prize: 25 },
-  ];
+  const bounties = parseBountyLeaders(bountyRows);
 
   const data = {
     title: 'Rancour PvM 2026 Bingo',
@@ -271,6 +310,13 @@ async function renderDashboard() {
     .roster::-webkit-scrollbar-thumb:hover{background:linear-gradient(90deg,#6b5433,#a17f49,#6b5433);box-shadow:inset 0 0 0 1px #c5a15d}
     .roster::-webkit-scrollbar-button{display:none;width:0;height:0}
     .roster::-webkit-scrollbar-corner{background:#18140f}
+    .bounty-leaders{clear:both;margin-top:5px;padding-top:5px;border-top:1px dotted #5a4b37}
+    .bounty-leader{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:center;margin-top:3px}
+    .bounty-leader:first-child{margin-top:0}
+    .bounty-leader-name{font-size:10px;color:#d6c39b;line-height:1.2;min-width:0}
+    .bounty-leader-team{color:#82745b;font-size:8px;margin-left:3px;white-space:nowrap}
+    .bounty-leader-value{font-size:10px;color:#d9b45d;font-weight:bold;white-space:nowrap}
+    .bounty-no-leader{font-size:9px;color:#746752;font-style:italic}
     .tile-drops{margin:14px 0;border:2px inset #957a4c;background:#c5b07f}
     .tile-drop-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;padding:8px 10px;border-bottom:1px dotted rgba(82,58,30,.45);align-items:center}
     .tile-drop-row:last-child{border-bottom:0}
@@ -335,6 +381,26 @@ async function renderDashboard() {
       standingsFrame.insertAdjacentHTML('afterend','<section class="frame"><div class="frame-title">Recent Drops</div><div id="recentDrops"><div class="empty">No drops logged yet</div></div></section>');
     }
 
+    function formatBountyValue(bounty, value){
+      const n = Number(value || 0);
+      const formatted = Number.isInteger(n) ? String(n) : n.toFixed(2).replace(/0+$/,'').replace(/\.$/,'');
+      if(bounty.unit === 'Pets') return formatted + (n === 1 ? ' pet' : ' pets');
+      return formatted + ' ' + (bounty.unit || '');
+    }
+
+    function renderBountyBoard(){
+      const box = document.getElementById('bounties');
+      if(!box || !data) return;
+      const bounties = Array.isArray(data.bounties) ? data.bounties : [];
+      box.innerHTML = bounties.length ? bounties.map(b => {
+        const leaders = Number(b.leadingValue || 0) > 0 && Array.isArray(b.leaders) ? b.leaders : [];
+        const leaderHtml = leaders.length
+          ? '<div class="bounty-leaders">'+leaders.map(leader => '<div class="bounty-leader"><div class="bounty-leader-name">'+esc(leader.name)+(leader.team ? '<span class="bounty-leader-team">• '+esc(leader.team)+'</span>' : '')+'</div><div class="bounty-leader-value">'+esc(formatBountyValue(b,leader.value))+'</div></div>').join('')+'</div>'
+          : '<div class="bounty-leaders"><div class="bounty-no-leader">No leader yet</div></div>';
+        return '<div class="bounty"><span class="prize">'+Number(b.prize||0)+'m</span><strong>'+esc(b.name)+'</strong>'+leaderHtml+'</div>';
+      }).join('') : '<div class="empty">No bounties configured</div>';
+    }
+
     function renderRecentDrops(){
       const box = document.getElementById('recentDrops');
       if(!box || !data || !data.teams?.length) return;
@@ -348,9 +414,10 @@ async function renderDashboard() {
     const originalRenderRightForDrops = renderRight;
     renderRight = function(){
       originalRenderRightForDrops();
+      renderBountyBoard();
       renderRecentDrops();
     };
-    if(data) renderRecentDrops();
+    if(data){renderBountyBoard();renderRecentDrops()}
   </script>`;
   html = html.replace('</body>', `${requirementScript}</body>`);
   return html;

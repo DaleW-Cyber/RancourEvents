@@ -264,6 +264,13 @@ async function renderDashboard() {
     .recent-drop-name{font-size:11px;line-height:1.25;color:#e0c47e;font-weight:bold}
     .recent-drop-player{margin-top:2px;font-size:9px;line-height:1.25;color:#99896c}
     .recent-drop-player:before{content:"Received by ";color:#76684f}
+    .roster{scrollbar-width:thin;scrollbar-color:#80663d #18140f}
+    .roster::-webkit-scrollbar{width:11px}
+    .roster::-webkit-scrollbar-track{background:linear-gradient(90deg,#16120e,#211b14);border-left:1px solid #4d3d29;box-shadow:inset 1px 0 #0d0b08}
+    .roster::-webkit-scrollbar-thumb{background:linear-gradient(90deg,#5b482d,#8d7040,#5b482d);border:2px solid #211a12;box-shadow:inset 0 0 0 1px #ad8c50}
+    .roster::-webkit-scrollbar-thumb:hover{background:linear-gradient(90deg,#6b5433,#a17f49,#6b5433);box-shadow:inset 0 0 0 1px #c5a15d}
+    .roster::-webkit-scrollbar-button{display:none;width:0;height:0}
+    .roster::-webkit-scrollbar-corner{background:#18140f}
     .tile-drops{margin:14px 0;border:2px inset #957a4c;background:#c5b07f}
     .tile-drop-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;padding:8px 10px;border-bottom:1px dotted rgba(82,58,30,.45);align-items:center}
     .tile-drop-row:last-child{border-bottom:0}

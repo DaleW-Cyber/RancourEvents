@@ -166,8 +166,15 @@ function parseTeam(rows, requirementRows, dropRows, index, fallbackName) {
     }
 
     const memberNo = Number(row[10]);
-    if (memberNo > 0 && row[12]) {
-      roster.push({ number: memberNo, discordId: row[11] || '', name: row[12], timezone: row[13] || '', rank: row[14] || '' });
+    if (memberNo > 0 && row[11] && row[12]) {
+      roster.push({
+        number: memberNo,
+        discordId: row[11] || '',
+        name: row[12],
+        timezone: row[13] || '',
+        rank: row[14] || '',
+        ehbGained: String(row[18] ?? '').trim(),
+      });
     }
 
     if (String(row[2]).trim() === 'Team Name:' && row[3]) teamName = row[3];
@@ -228,9 +235,9 @@ async function loadEvent() {
 
   const [summary, t1, t2, t3, r1, r2, r3, d1, d2, d3, bountyRows] = await Promise.all([
     fetchCsv('Summary Board','A1:Z64'),
-    fetchCsv('Team 01','AB2:AP50'),
-    fetchCsv('Team 02','AB2:AP50'),
-    fetchCsv('Team 03','AB2:AP50'),
+    fetchCsv('Team 01','AB2:AT50'),
+    fetchCsv('Team 02','AB2:AT50'),
+    fetchCsv('Team 03','AB2:AT50'),
     fetchCsv('Team 01','BG2:CA110'),
     fetchCsv('Team 02','BG2:CA110'),
     fetchCsv('Team 03','BG2:CA110'),
@@ -284,6 +291,7 @@ async function renderDashboard() {
   const fileUrl = new URL('./public/index.html', import.meta.url);
   let html = await readFile(fileUrl, 'utf8');
   html = html.replace('<title>Rancour Bingo — War Room Skin Demo</title>', '<title>Rancour PvM Summer Bingo 2026</title>');
+  html = html.replace('<div class="frame-title">Current Roster</div>', '<div class="frame-title">Team Roster</div>');
 
   const kofiButton = `<a class="btn" href="${KOFI_URL}" target="_blank" rel="noopener noreferrer" style="background:#72a4f2;border-color:#94bdf8;color:#fff;gap:7px" aria-label="Support me on Ko-fi"><span aria-hidden="true">☕</span> Support me on Ko-fi</a>`;
   html = html.replace('<a id="sheetLink"', `${kofiButton}<a id="sheetLink"`);
@@ -304,6 +312,8 @@ async function renderDashboard() {
     .recent-drop-name{font-size:11px;line-height:1.25;color:#e0c47e;font-weight:bold}
     .recent-drop-player{margin-top:2px;font-size:9px;line-height:1.25;color:#99896c}
     .recent-drop-player:before{content:"Received by ";color:#76684f}
+    .roster-head{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;padding:2px 3px 6px;margin-bottom:1px;border-bottom:1px solid #6d5938;color:#9f8d6d;font-size:8px;text-transform:uppercase;letter-spacing:.08em}
+    .roster-ehb{color:#d5b86e;font-size:10px;font-weight:bold;white-space:nowrap;text-align:right}
     .roster{scrollbar-width:thin;scrollbar-color:#80663d #18140f}
     .roster::-webkit-scrollbar{width:11px}
     .roster::-webkit-scrollbar-track{background:linear-gradient(90deg,#16120e,#211b14);border-left:1px solid #4d3d29;box-shadow:inset 1px 0 #0d0b08}
@@ -330,6 +340,21 @@ async function renderDashboard() {
   html = html.replace('<div class="preview" id="devidence"></div>', '<div class="requirements" id="drequirements"></div><div class="tile-drops" id="dtileDrops"></div><div class="preview" id="devidence"></div>');
 
   const requirementScript = `<script>
+    function rosterEhbDisplay(value){
+      const text = String(value ?? '').trim();
+      if(!text || /^ERROR$/i.test(text) || text.startsWith('#')) return '—';
+      return text;
+    }
+
+    renderRoster = function(){
+      if(!data) return;
+      const team = data.teams[state.team] || data.teams[0];
+      const box = document.getElementById('roster');
+      if(!box) return;
+      if(!team?.roster?.length){ box.innerHTML = '<div class="empty">No roster data</div>'; return; }
+      box.innerHTML = '<div class="roster-head"><span>RSN</span><span>EHB Gained</span></div>' + team.roster.map(player => '<div class="person"><span>'+esc(player.name)+'</span><span class="roster-ehb">'+esc(rosterEhbDisplay(player.ehbGained))+'</span></div>').join('');
+    };
+
     const originalOpenTile = openTile;
     openTile = function(tile){
       originalOpenTile(tile);
@@ -406,7 +431,7 @@ async function renderDashboard() {
 
     const originalRenderRightForDrops = renderRight;
     renderRight = function(){ originalRenderRightForDrops(); renderBountyBoard(); renderRecentDrops(); };
-    if(data){renderBountyBoard();renderRecentDrops()}
+    if(data){renderRoster();renderBountyBoard();renderRecentDrops()}
   </script>`;
   html = html.replace('</body>', `${requirementScript}</body>`);
   return html;

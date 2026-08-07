@@ -14,7 +14,7 @@ let itemCache = { at: 0, data: null };
 async function fetchCsv(sheet, range) {
   const params = new URLSearchParams({ tqx: 'out:csv', sheet, range });
   const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?${params}`;
-  const res = await fetch(url, { redirect: 'follow', headers: { 'User-Agent': 'RancourEvents/0.3' } });
+  const res = await fetch(url, { redirect: 'follow', headers: { 'User-Agent': 'RancourEvents/0.4' } });
   if (!res.ok) throw new Error(`Google Sheets returned ${res.status} for ${sheet}`);
   const text = await res.text();
   if (text.trim().startsWith('<!DOCTYPE html') || text.includes('accounts.google.com')) {
@@ -71,7 +71,42 @@ function parseTileRequirements(rows, tiles) {
   }
 }
 
-function parseTeam(rows, requirementRows, index, fallbackName) {
+function parseRecentDrops(rows) {
+  const drops = [];
+
+  for (let i = 0; i < rows.length; i++) {
+    const dropNumberText = String(rows[i]?.[0] ?? '').trim();
+    const drop = String(rows[i]?.[1] ?? '').trim();
+    const member = String(rows[i]?.[2] ?? '').trim();
+
+    if (!drop || !member) continue;
+    if (drop === 'Drop' || member === 'Member Name') continue;
+    if (drop.includes('End of Drop List')) continue;
+
+    const numericText = dropNumberText.replace(/[^\d.-]/g, '');
+    const parsedNumber = numericText ? Number(numericText) : NaN;
+
+    drops.push({
+      dropNumber: Number.isFinite(parsedNumber) ? parsedNumber : null,
+      drop,
+      member,
+      rowIndex: i,
+    });
+  }
+
+  drops.sort((a, b) => {
+    if (a.dropNumber !== null && b.dropNumber !== null && a.dropNumber !== b.dropNumber) {
+      return b.dropNumber - a.dropNumber;
+    }
+    if (a.dropNumber !== null && b.dropNumber === null) return -1;
+    if (a.dropNumber === null && b.dropNumber !== null) return 1;
+    return b.rowIndex - a.rowIndex;
+  });
+
+  return drops.slice(0, 10).map(({ dropNumber, drop, member }) => ({ dropNumber, drop, member }));
+}
+
+function parseTeam(rows, requirementRows, dropRows, index, fallbackName) {
   const tiles = [];
   const roster = [];
   let teamName = fallbackName;
@@ -106,15 +141,16 @@ function parseTeam(rows, requirementRows, index, fallbackName) {
   }
 
   parseTileRequirements(requirementRows, tiles);
+  const drops = parseRecentDrops(dropRows);
 
   const score = tiles.length ? tiles.reduce((a,t)=>a+t.progress,0)/tiles.length : 0;
-  return { id: `team-${index+1}`, number: `Team ${String(index+1).padStart(2,'0')}`, name: teamName, score, roster, tiles };
+  return { id: `team-${index+1}`, number: `Team ${String(index+1).padStart(2,'0')}`, name: teamName, score, roster, tiles, drops };
 }
 
 async function loadEvent() {
   if (cache.data && Date.now() - cache.at < CACHE_MS) return cache.data;
 
-  const [summary, t1, t2, t3, r1, r2, r3] = await Promise.all([
+  const [summary, t1, t2, t3, r1, r2, r3, d1, d2, d3] = await Promise.all([
     fetchCsv('Summary Board','A1:Z64'),
     fetchCsv('Team 01','AB2:AP50'),
     fetchCsv('Team 02','AB2:AP50'),
@@ -122,13 +158,16 @@ async function loadEvent() {
     fetchCsv('Team 01','BG2:CA110'),
     fetchCsv('Team 02','BG2:CA110'),
     fetchCsv('Team 03','BG2:CA110'),
+    fetchCsv('Team 01','AX2:AZ615'),
+    fetchCsv('Team 02','AX2:AZ615'),
+    fetchCsv('Team 03','AX2:AZ615'),
   ]);
 
   const teamNames = [summary?.[2]?.[15], summary?.[2]?.[16], summary?.[2]?.[17]];
   const teams = [
-    parseTeam(t1, r1, 0, teamNames[0] || 'Team 1'),
-    parseTeam(t2, r2, 1, teamNames[1] || 'Team 2'),
-    parseTeam(t3, r3, 2, teamNames[2] || 'Team 3'),
+    parseTeam(t1, r1, d1, 0, teamNames[0] || 'Team 1'),
+    parseTeam(t2, r2, d2, 1, teamNames[1] || 'Team 2'),
+    parseTeam(t3, r3, d3, 2, teamNames[2] || 'Team 3'),
   ];
 
   const bounties = [
@@ -216,6 +255,11 @@ async function renderDashboard() {
     .requirements-table tr.total td{font-weight:bold;background:#a99365;border-top:2px solid #765a34}
     .requirements-table tr.subtotal td{font-weight:bold;background:#b49d6d;color:#5b3b24}
     .requirements-empty{padding:10px;color:#654d31;font-size:10px}
+    .recent-drop{padding:7px 9px;border-bottom:1px dotted #594b36}
+    .recent-drop:last-child{border-bottom:0}
+    .recent-drop-name{font-size:11px;line-height:1.25;color:#e0c47e;font-weight:bold}
+    .recent-drop-player{margin-top:2px;font-size:9px;line-height:1.25;color:#99896c}
+    .recent-drop-player:before{content:"Received by ";color:#76684f}
     @media(max-width:520px){.scroll{padding:12px}.requirements-table{font-size:10px}.requirements-table th,.requirements-table td{padding:6px 5px}}
   </style>`;
   html = html.replace('</head>', `${requirementCss}</head>`);
@@ -236,6 +280,28 @@ async function renderDashboard() {
       const rows = req.rows.map(row => '<tr class="'+esc(row.kind||'item')+'"><td>'+esc(row.item)+'</td><td>'+esc(row.value1||'—')+'</td><td>'+esc(row.value2||'—')+'</td></tr>').join('');
       box.innerHTML = '<div class="requirements-title">Live tile requirements — '+esc((data.teams[state.team]||{}).name||'Current team')+'</div><table class="requirements-table"><thead><tr><th>'+esc(cols[0]||'Item')+'</th><th>'+esc(cols[1]||'Needed')+'</th><th>'+esc(cols[2]||'Earned')+'</th></tr></thead><tbody>'+rows+'</tbody></table>';
     };
+
+    const standingsFrame = document.getElementById('leaderboard')?.closest('.frame');
+    if(standingsFrame && !document.getElementById('recentDrops')){
+      standingsFrame.insertAdjacentHTML('afterend','<section class="frame"><div class="frame-title">Recent Drops</div><div id="recentDrops"><div class="empty">No drops logged yet</div></div></section>');
+    }
+
+    function renderRecentDrops(){
+      const box = document.getElementById('recentDrops');
+      if(!box || !data || !data.teams?.length) return;
+      const team = data.teams[state.team] || data.teams[0];
+      const drops = Array.isArray(team?.drops) ? team.drops.slice(0,10) : [];
+      box.innerHTML = drops.length
+        ? drops.map(entry => '<div class="recent-drop"><div class="recent-drop-name">'+esc(entry.drop)+'</div><div class="recent-drop-player">'+esc(entry.member)+'</div></div>').join('')
+        : '<div class="empty">No drops logged for this team yet.</div>';
+    }
+
+    const originalRenderRightForDrops = renderRight;
+    renderRight = function(){
+      originalRenderRightForDrops();
+      renderRecentDrops();
+    };
+    if(data) renderRecentDrops();
   </script>`;
   html = html.replace('</body>', `${requirementScript}</body>`);
   return html;

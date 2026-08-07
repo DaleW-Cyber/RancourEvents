@@ -9,11 +9,12 @@ const CACHE_MS = Number(process.env.EVENT_CACHE_MS || 60000);
 const KOFI_URL = 'https://ko-fi.com/daleeuw';
 
 let cache = { at: 0, data: null };
+let itemCache = { at: 0, data: null };
 
 async function fetchCsv(sheet, range) {
   const params = new URLSearchParams({ tqx: 'out:csv', sheet, range });
   const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?${params}`;
-  const res = await fetch(url, { redirect: 'follow', headers: { 'User-Agent': 'RancourEvents/0.1' } });
+  const res = await fetch(url, { redirect: 'follow', headers: { 'User-Agent': 'RancourEvents/0.2' } });
   if (!res.ok) throw new Error(`Google Sheets returned ${res.status} for ${sheet}`);
   const text = await res.text();
   if (text.trim().startsWith('<!DOCTYPE html') || text.includes('accounts.google.com')) {
@@ -62,12 +63,11 @@ function parseTeam(rows, index, fallbackName) {
 
 async function loadEvent() {
   if (cache.data && Date.now() - cache.at < CACHE_MS) return cache.data;
-  const [summary, t1, t2, t3, bounty] = await Promise.all([
+  const [summary, t1, t2, t3] = await Promise.all([
     fetchCsv('Summary Board','A1:Z64'),
     fetchCsv('Team 01','AB2:AP50'),
     fetchCsv('Team 02','AB2:AP50'),
     fetchCsv('Team 03','AB2:AP50'),
-    fetchCsv('Bounty Tracker','A1:Q20'),
   ]);
 
   const teamNames = [summary?.[2]?.[15], summary?.[2]?.[16], summary?.[2]?.[17]];
@@ -93,6 +93,51 @@ async function loadEvent() {
   return data;
 }
 
+async function loadItems() {
+  if (itemCache.data && Date.now() - itemCache.at < CACHE_MS) return itemCache.data;
+  const rows = await fetchCsv('Item List', 'B2:K250');
+  const items = [];
+  const pets = [];
+  let petCategory = 'Boss Pets';
+
+  for (const row of rows) {
+    const tile = Number(row[0]);
+    if (tile >= 1 && tile <= 36 && row[3]) {
+      items.push({
+        tile,
+        content: row[1] || '',
+        tileName: row[2] || '',
+        item: row[3] || '',
+        dropPoints: row[4] || '',
+        price: row[5] || '',
+      });
+    }
+
+    const petName = String(row[7] || '').trim();
+    if (['Boss Pets','Skilling Pets','Other Pets'].includes(petName)) {
+      petCategory = petName;
+      continue;
+    }
+    if (petName && petName !== 'Drop Rate' && petName !== 'Include/Exclude') {
+      pets.push({
+        category: petCategory,
+        name: petName,
+        dropRate: row[8] || '',
+        status: row[9] || '',
+      });
+    }
+  }
+
+  const data = {
+    refreshedAt: new Date().toISOString(),
+    sheetUrl: `https://docs.google.com/spreadsheets/d/${SHEET_ID}/edit?gid=1301329739#gid=1301329739`,
+    items,
+    pets,
+  };
+  itemCache = { at: Date.now(), data };
+  return data;
+}
+
 async function renderDashboard() {
   const fileUrl = new URL('./public/index.html', import.meta.url);
   let html = await readFile(fileUrl, 'utf8');
@@ -112,6 +157,16 @@ app.get('/api/event', async (_req,res) => {
     res.status(503).json({ error: error.message });
   }
 });
+app.get('/api/items', async (_req,res) => {
+  try {
+    const data = await loadItems();
+    res.set('Cache-Control','public, max-age=30');
+    res.json(data);
+  } catch (error) {
+    console.error('Item list refresh failed:', error);
+    res.status(503).json({ error: error.message });
+  }
+});
 app.get('/', async (_req,res,next) => {
   try {
     res.type('html').send(await renderDashboard());
@@ -119,6 +174,7 @@ app.get('/', async (_req,res,next) => {
     next(error);
   }
 });
+app.get('/items', (_req,res)=>res.sendFile(new URL('./public/items.html', import.meta.url).pathname));
 app.use(express.static('public'));
 app.get('*', (_req,res)=>res.sendFile(new URL('./public/index.html', import.meta.url).pathname));
 app.listen(PORT, '0.0.0.0', ()=>console.log(`Rancour Events listening on ${PORT}`));

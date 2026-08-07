@@ -14,7 +14,7 @@ let itemCache = { at: 0, data: null };
 async function fetchCsv(sheet, range) {
   const params = new URLSearchParams({ tqx: 'out:csv', sheet, range });
   const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?${params}`;
-  const res = await fetch(url, { redirect: 'follow', headers: { 'User-Agent': 'RancourEvents/0.2' } });
+  const res = await fetch(url, { redirect: 'follow', headers: { 'User-Agent': 'RancourEvents/0.3' } });
   if (!res.ok) throw new Error(`Google Sheets returned ${res.status} for ${sheet}`);
   const text = await res.text();
   if (text.trim().startsWith('<!DOCTYPE html') || text.includes('accounts.google.com')) {
@@ -28,13 +28,57 @@ function pct(value) {
   return Number.isFinite(n) ? n : 0;
 }
 
-function parseTeam(rows, index, fallbackName) {
+function parseTileRequirements(rows, tiles) {
+  const tileMap = new Map(tiles.map(tile => [tile.id, tile]));
+  const blockStarts = [2, 6, 10, 14, 18]; // BI, BM, BQ, BU, BY when range begins at BG
+
+  for (const start of blockStarts) {
+    for (let r = 0; r < rows.length - 2; r++) {
+      if (String(rows[r]?.[start] ?? '').trim() !== 'Tile:') continue;
+
+      const tileId = Number(rows[r + 1]?.[start]);
+      const tile = tileMap.get(tileId);
+      if (!tile) continue;
+
+      const headerRow = rows[r + 2] || [];
+      const columns = [
+        String(headerRow[start] || 'Item').trim() || 'Item',
+        String(headerRow[start + 1] || 'Needed').trim() || 'Needed',
+        String(headerRow[start + 2] || 'Earned').trim() || 'Earned',
+      ];
+      const requirementRows = [];
+
+      for (let j = r + 3; j < rows.length; j++) {
+        const item = String(rows[j]?.[start] ?? '').trim();
+        const value1 = String(rows[j]?.[start + 1] ?? '').trim();
+        const value2 = String(rows[j]?.[start + 2] ?? '').trim();
+
+        if (item === 'Tile:') break;
+        if (!item && !value1 && !value2) continue;
+        if (!item || item === 'Item') continue;
+
+        const kind = item.toLowerCase() === 'total'
+          ? 'total'
+          : /subtotal$/i.test(item)
+            ? 'subtotal'
+            : 'item';
+
+        requirementRows.push({ item, value1, value2, kind });
+      }
+
+      tile.requirements = { columns, rows: requirementRows };
+    }
+  }
+}
+
+function parseTeam(rows, requirementRows, index, fallbackName) {
   const tiles = [];
   const roster = [];
   let teamName = fallbackName;
+
   for (const row of rows) {
     const tileNo = Number(row[0]);
-    if (tileNo >= 1 && tileNo <= 36) {
+    if (tileNo >= 1 && tileNo <= 36 && row[1] && row[2]) {
       tiles.push({
         id: tileNo,
         content: row[1] || '',
@@ -43,8 +87,10 @@ function parseTeam(rows, index, fallbackName) {
         type: row[4] || '',
         difficulty: row[5] || '',
         progress: pct(row[6]),
+        requirements: null,
       });
     }
+
     const memberNo = Number(row[10]);
     if (memberNo > 0 && row[12]) {
       roster.push({
@@ -55,23 +101,36 @@ function parseTeam(rows, index, fallbackName) {
         rank: row[14] || '',
       });
     }
+
     if (String(row[2]).trim() === 'Team Name:' && row[3]) teamName = row[3];
   }
+
+  parseTileRequirements(requirementRows, tiles);
+
   const score = tiles.length ? tiles.reduce((a,t)=>a+t.progress,0)/tiles.length : 0;
   return { id: `team-${index+1}`, number: `Team ${String(index+1).padStart(2,'0')}`, name: teamName, score, roster, tiles };
 }
 
 async function loadEvent() {
   if (cache.data && Date.now() - cache.at < CACHE_MS) return cache.data;
-  const [summary, t1, t2, t3] = await Promise.all([
+
+  const [summary, t1, t2, t3, r1, r2, r3] = await Promise.all([
     fetchCsv('Summary Board','A1:Z64'),
     fetchCsv('Team 01','AB2:AP50'),
     fetchCsv('Team 02','AB2:AP50'),
     fetchCsv('Team 03','AB2:AP50'),
+    fetchCsv('Team 01','BG2:CA110'),
+    fetchCsv('Team 02','BG2:CA110'),
+    fetchCsv('Team 03','BG2:CA110'),
   ]);
 
   const teamNames = [summary?.[2]?.[15], summary?.[2]?.[16], summary?.[2]?.[17]];
-  const teams = [t1,t2,t3].map((rows,i)=>parseTeam(rows,i,teamNames[i] || `Team ${i+1}`));
+  const teams = [
+    parseTeam(t1, r1, 0, teamNames[0] || 'Team 1'),
+    parseTeam(t2, r2, 1, teamNames[1] || 'Team 2'),
+    parseTeam(t3, r3, 2, teamNames[2] || 'Team 3'),
+  ];
+
   const bounties = [
     { name: 'Most Nightmare / PNM KC', prize: 25 },
     { name: 'Most Mad Angel KC', prize: 25 },
@@ -142,9 +201,43 @@ async function renderDashboard() {
   const fileUrl = new URL('./public/index.html', import.meta.url);
   let html = await readFile(fileUrl, 'utf8');
   html = html.replace('<title>Rancour Bingo — War Room Skin Demo</title>', '<title>Rancour PvM Summer Bingo 2026</title>');
+
   const kofiButton = `<a class="btn" href="${KOFI_URL}" target="_blank" rel="noopener noreferrer" style="background:#72a4f2;border-color:#94bdf8;color:#fff;gap:7px" aria-label="Support me on Ko-fi"><span aria-hidden="true">☕</span> Support me on Ko-fi</a>`;
   html = html.replace('<a id="sheetLink"', `${kofiButton}<a id="sheetLink"`);
   html = html.replace('<button class="osrs-btn" id="refreshBtn">', '<a class="osrs-btn" href="/items" style="text-decoration:none">Item List</a><button class="osrs-btn" id="refreshBtn">');
+
+  const requirementCss = `<style>
+    .requirements{margin:14px 0;border:2px inset #957a4c;background:#bda778}
+    .requirements-title{padding:8px 10px;background:#493a28;color:#ead4a2;font-size:11px;font-weight:bold;letter-spacing:.08em;text-transform:uppercase}
+    .requirements-table{width:100%;border-collapse:collapse;font-size:11px}
+    .requirements-table th,.requirements-table td{padding:7px 8px;border-bottom:1px solid rgba(82,58,30,.35);text-align:left;vertical-align:top}
+    .requirements-table th{background:#c8b486;color:#5e4529;font-size:9px;text-transform:uppercase;letter-spacing:.05em}
+    .requirements-table th:nth-child(n+2),.requirements-table td:nth-child(n+2){text-align:right;white-space:nowrap}
+    .requirements-table tr.total td{font-weight:bold;background:#a99365;border-top:2px solid #765a34}
+    .requirements-table tr.subtotal td{font-weight:bold;background:#b49d6d;color:#5b3b24}
+    .requirements-empty{padding:10px;color:#654d31;font-size:10px}
+    @media(max-width:520px){.scroll{padding:12px}.requirements-table{font-size:10px}.requirements-table th,.requirements-table td{padding:6px 5px}}
+  </style>`;
+  html = html.replace('</head>', `${requirementCss}</head>`);
+  html = html.replace('<div class="preview" id="devidence"></div>', '<div class="requirements" id="drequirements"></div><div class="preview" id="devidence"></div>');
+
+  const requirementScript = `<script>
+    const originalOpenTile = openTile;
+    openTile = function(tile){
+      originalOpenTile(tile);
+      const box = document.getElementById('drequirements');
+      const req = tile && tile.requirements;
+      if(!box) return;
+      if(!req || !Array.isArray(req.rows) || !req.rows.length){
+        box.innerHTML = '<div class="requirements-title">Tile requirements</div><div class="requirements-empty">No item requirement rows are configured for this tile.</div>';
+        return;
+      }
+      const cols = req.columns || ['Item','Needed','Earned'];
+      const rows = req.rows.map(row => '<tr class="'+esc(row.kind||'item')+'"><td>'+esc(row.item)+'</td><td>'+esc(row.value1||'—')+'</td><td>'+esc(row.value2||'—')+'</td></tr>').join('');
+      box.innerHTML = '<div class="requirements-title">Live tile requirements — '+esc((data.teams[state.team]||{}).name||'Current team')+'</div><table class="requirements-table"><thead><tr><th>'+esc(cols[0]||'Item')+'</th><th>'+esc(cols[1]||'Needed')+'</th><th>'+esc(cols[2]||'Earned')+'</th></tr></thead><tbody>'+rows+'</tbody></table>';
+    };
+  </script>`;
+  html = html.replace('</body>', `${requirementScript}</body>`);
   return html;
 }
 

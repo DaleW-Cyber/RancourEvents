@@ -173,6 +173,7 @@ function parseTeam(rows, requirementRows, dropRows, index, fallbackName) {
         name: row[12],
         timezone: row[13] || '',
         rank: row[14] || '',
+        dropPoints: String(row[16] ?? '').trim(),
         ehbGained: String(row[18] ?? '').trim(),
       });
     }
@@ -312,8 +313,10 @@ async function renderDashboard() {
     .recent-drop-name{font-size:11px;line-height:1.25;color:#e0c47e;font-weight:bold}
     .recent-drop-player{margin-top:2px;font-size:9px;line-height:1.25;color:#99896c}
     .recent-drop-player:before{content:"Received by ";color:#76684f}
-    .roster-head{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;padding:2px 3px 6px;margin-bottom:1px;border-bottom:1px solid #6d5938;color:#9f8d6d;font-size:8px;text-transform:uppercase;letter-spacing:.08em}
-    .roster-ehb{color:#d5b86e;font-size:10px;font-weight:bold;white-space:nowrap;text-align:right}
+    .roster-head{display:grid;grid-template-columns:minmax(0,1fr) 54px 64px;gap:7px;padding:2px 3px 6px;margin-bottom:1px;border-bottom:1px solid #6d5938;color:#9f8d6d;font-size:8px;text-transform:uppercase;letter-spacing:.06em;align-items:end}
+    .roster-head span:nth-child(n+2){text-align:right}
+    .roster-row{display:grid!important;grid-template-columns:minmax(0,1fr) 54px 64px;gap:7px;align-items:center}
+    .roster-metric{color:#d5b86e;font-size:10px;font-weight:bold;white-space:nowrap;text-align:right}
     .roster{scrollbar-width:thin;scrollbar-color:#80663d #18140f}
     .roster::-webkit-scrollbar{width:11px}
     .roster::-webkit-scrollbar-track{background:linear-gradient(90deg,#16120e,#211b14);border-left:1px solid #4d3d29;box-shadow:inset 1px 0 #0d0b08}
@@ -340,9 +343,9 @@ async function renderDashboard() {
   html = html.replace('<div class="preview" id="devidence"></div>', '<div class="requirements" id="drequirements"></div><div class="tile-drops" id="dtileDrops"></div><div class="preview" id="devidence"></div>');
 
   const requirementScript = `<script>
-    function rosterEhbDisplay(value){
+    function rosterMetricDisplay(value){
       const text = String(value ?? '').trim();
-      if(!text || /^ERROR$/i.test(text) || text.startsWith('#')) return '—';
+      if(!text || /^ERROR$/i.test(text) || text.startsWith('#') || /^-+$/.test(text)) return '—';
       return text;
     }
 
@@ -352,7 +355,7 @@ async function renderDashboard() {
       const box = document.getElementById('roster');
       if(!box) return;
       if(!team?.roster?.length){ box.innerHTML = '<div class="empty">No roster data</div>'; return; }
-      box.innerHTML = '<div class="roster-head"><span>RSN</span><span>EHB Gained</span></div>' + team.roster.map(player => '<div class="person"><span>'+esc(player.name)+'</span><span class="roster-ehb">'+esc(rosterEhbDisplay(player.ehbGained))+'</span></div>').join('');
+      box.innerHTML = '<div class="roster-head"><span>RSN</span><span>Drop Pts</span><span>EHB Gained</span></div>' + team.roster.map(player => '<div class="person roster-row"><span>'+esc(player.name)+'</span><span class="roster-metric">'+esc(rosterMetricDisplay(player.dropPoints))+'</span><span class="roster-metric">'+esc(rosterMetricDisplay(player.ehbGained))+'</span></div>').join('');
     };
 
     const originalOpenTile = openTile;

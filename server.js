@@ -14,7 +14,7 @@ let itemCache = { at: 0, data: null };
 async function fetchCsv(sheet, range) {
   const params = new URLSearchParams({ tqx: 'out:csv', sheet, range });
   const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?${params}`;
-  const res = await fetch(url, { redirect: 'follow', headers: { 'User-Agent': 'RancourEvents/0.4' } });
+  const res = await fetch(url, { redirect: 'follow', headers: { 'User-Agent': 'RancourEvents/0.5' } });
   if (!res.ok) throw new Error(`Google Sheets returned ${res.status} for ${sheet}`);
   const text = await res.text();
   if (text.trim().startsWith('<!DOCTYPE html') || text.includes('accounts.google.com')) {
@@ -78,6 +78,7 @@ function parseRecentDrops(rows) {
     const dropNumberText = String(rows[i]?.[0] ?? '').trim();
     const drop = String(rows[i]?.[1] ?? '').trim();
     const member = String(rows[i]?.[2] ?? '').trim();
+    const tile = String(rows[i]?.[3] ?? '').trim();
 
     if (!drop || !member) continue;
     if (drop === 'Drop' || member === 'Member Name') continue;
@@ -85,11 +86,14 @@ function parseRecentDrops(rows) {
 
     const numericText = dropNumberText.replace(/[^\d.-]/g, '');
     const parsedNumber = numericText ? Number(numericText) : NaN;
+    const tileMatch = tile.match(/^\s*(?:tile\s*)?#?\s*(\d+)\s*$/i);
 
     drops.push({
       dropNumber: Number.isFinite(parsedNumber) ? parsedNumber : null,
       drop,
       member,
+      tile,
+      tileId: tileMatch ? Number(tileMatch[1]) : null,
       rowIndex: i,
     });
   }
@@ -103,7 +107,7 @@ function parseRecentDrops(rows) {
     return b.rowIndex - a.rowIndex;
   });
 
-  return drops.slice(0, 10).map(({ dropNumber, drop, member }) => ({ dropNumber, drop, member }));
+  return drops.map(({ dropNumber, drop, member, tile, tileId }) => ({ dropNumber, drop, member, tile, tileId }));
 }
 
 function parseTeam(rows, requirementRows, dropRows, index, fallbackName) {
@@ -158,9 +162,9 @@ async function loadEvent() {
     fetchCsv('Team 01','BG2:CA110'),
     fetchCsv('Team 02','BG2:CA110'),
     fetchCsv('Team 03','BG2:CA110'),
-    fetchCsv('Team 01','AX2:AZ615'),
-    fetchCsv('Team 02','AX2:AZ615'),
-    fetchCsv('Team 03','AX2:AZ615'),
+    fetchCsv('Team 01','AX2:BA615'),
+    fetchCsv('Team 02','AX2:BA615'),
+    fetchCsv('Team 03','AX2:BA615'),
   ]);
 
   const teamNames = [summary?.[2]?.[15], summary?.[2]?.[16], summary?.[2]?.[17]];
@@ -260,10 +264,16 @@ async function renderDashboard() {
     .recent-drop-name{font-size:11px;line-height:1.25;color:#e0c47e;font-weight:bold}
     .recent-drop-player{margin-top:2px;font-size:9px;line-height:1.25;color:#99896c}
     .recent-drop-player:before{content:"Received by ";color:#76684f}
-    @media(max-width:520px){.scroll{padding:12px}.requirements-table{font-size:10px}.requirements-table th,.requirements-table td{padding:6px 5px}}
+    .tile-drops{margin:14px 0;border:2px inset #957a4c;background:#c5b07f}
+    .tile-drop-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;padding:8px 10px;border-bottom:1px dotted rgba(82,58,30,.45);align-items:center}
+    .tile-drop-row:last-child{border-bottom:0}
+    .tile-drop-name{font-size:11px;font-weight:bold;color:#4f281d}
+    .tile-drop-player{font-size:10px;color:#674d2f;white-space:nowrap}
+    .tile-drop-player:before{content:"Received by ";color:#806441}
+    @media(max-width:520px){.scroll{padding:12px}.requirements-table{font-size:10px}.requirements-table th,.requirements-table td{padding:6px 5px}.tile-drop-row{grid-template-columns:1fr;gap:2px}.tile-drop-player{white-space:normal}}
   </style>`;
   html = html.replace('</head>', `${requirementCss}</head>`);
-  html = html.replace('<div class="preview" id="devidence"></div>', '<div class="requirements" id="drequirements"></div><div class="preview" id="devidence"></div>');
+  html = html.replace('<div class="preview" id="devidence"></div>', '<div class="requirements" id="drequirements"></div><div class="tile-drops" id="dtileDrops"></div><div class="preview" id="devidence"></div>');
 
   const requirementScript = `<script>
     const originalOpenTile = openTile;
@@ -279,6 +289,38 @@ async function renderDashboard() {
       const cols = req.columns || ['Item','Needed','Earned'];
       const rows = req.rows.map(row => '<tr class="'+esc(row.kind||'item')+'"><td>'+esc(row.item)+'</td><td>'+esc(row.value1||'—')+'</td><td>'+esc(row.value2||'—')+'</td></tr>').join('');
       box.innerHTML = '<div class="requirements-title">Live tile requirements — '+esc((data.teams[state.team]||{}).name||'Current team')+'</div><table class="requirements-table"><thead><tr><th>'+esc(cols[0]||'Item')+'</th><th>'+esc(cols[1]||'Needed')+'</th><th>'+esc(cols[2]||'Earned')+'</th></tr></thead><tbody>'+rows+'</tbody></table>';
+    };
+
+    function dropMatchesTile(entry,tile){
+      if(Number(entry?.tileId) === Number(tile?.id)) return true;
+      const ref = String(entry?.tile || '').trim().toLowerCase();
+      const title = String(tile?.title || '').trim().toLowerCase();
+      if(!ref) return false;
+      if(ref === title || ref === String(tile.id) || ref === 'tile '+tile.id || ref === '#'+tile.id) return true;
+      const match = ref.match(/^tile\s*#?\s*(\d+)\b/i);
+      return !!match && Number(match[1]) === Number(tile.id);
+    }
+
+    const openTileWithRequirements = openTile;
+    openTile = function(tile){
+      openTileWithRequirements(tile);
+      const box = document.getElementById('dtileDrops');
+      const team = data?.teams?.[state.team] || data?.teams?.[0];
+      const contributions = Array.isArray(team?.drops) ? team.drops.filter(entry => dropMatchesTile(entry,tile)) : [];
+      if(box){
+        box.innerHTML = contributions.length
+          ? '<div class="requirements-title">Contributing drops — '+contributions.length+'</div>'+contributions.map(entry => '<div class="tile-drop-row"><div class="tile-drop-name">'+esc(entry.drop)+'</div><div class="tile-drop-player">'+esc(entry.member)+'</div></div>').join('')
+          : '<div class="requirements-title">Contributing drops</div><div class="requirements-empty">No drops are currently linked to this tile for '+esc(team?.name||'this team')+'.</div>';
+      }
+      const evidence = document.getElementById('devidence');
+      if(evidence){
+        const p = tileProgress(tile);
+        evidence.textContent = contributions.length
+          ? 'These drops are linked to this tile in the team worksheet.'
+          : p > 0
+            ? 'Progress is recorded for this tile, but there are no linked drop rows currently available.'
+            : 'No approved progress or linked drops are currently recorded for this tile.';
+      }
     };
 
     const standingsFrame = document.getElementById('leaderboard')?.closest('.frame');

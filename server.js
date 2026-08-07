@@ -1,10 +1,12 @@
 import express from 'express';
 import { parse } from 'csv-parse/sync';
+import { readFile } from 'node:fs/promises';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 const SHEET_ID = process.env.EVENT_SHEET_ID || '1wsjkbC8VClvIx0aQiMXNsNpdIdBE39hQT-bSiWGIslo';
 const CACHE_MS = Number(process.env.EVENT_CACHE_MS || 60000);
+const KOFI_URL = 'https://ko-fi.com/daleeuw';
 
 let cache = { at: 0, data: null };
 
@@ -91,6 +93,14 @@ async function loadEvent() {
   return data;
 }
 
+async function renderDashboard() {
+  const fileUrl = new URL('./public/index.html', import.meta.url);
+  let html = await readFile(fileUrl, 'utf8');
+  const kofiButton = `<a class="btn" href="${KOFI_URL}" target="_blank" rel="noopener noreferrer" style="background:#72a4f2;border-color:#94bdf8;color:#fff;gap:7px" aria-label="Support me on Ko-fi"><span aria-hidden="true">☕</span> Support me on Ko-fi</a>`;
+  html = html.replace('<a id="sheetLink"', `${kofiButton}<a id="sheetLink"`);
+  return html;
+}
+
 app.get('/health', (_req,res)=>res.json({ status: 'ok' }));
 app.get('/api/event', async (_req,res) => {
   try {
@@ -100,6 +110,13 @@ app.get('/api/event', async (_req,res) => {
   } catch (error) {
     console.error('Event data refresh failed:', error);
     res.status(503).json({ error: error.message });
+  }
+});
+app.get('/', async (_req,res,next) => {
+  try {
+    res.type('html').send(await renderDashboard());
+  } catch (error) {
+    next(error);
   }
 });
 app.use(express.static('public'));

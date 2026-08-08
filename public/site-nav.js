@@ -28,7 +28,7 @@
     const eventStatus=document.getElementById('eventStatus');
     if(eventStatus){
       const statusFrame=eventStatus.closest('.frame');
-      if(statusFrame)statusFrame.remove();
+      if(statusFrame)statusFrame.style.display='none';
     }
 
     if(path==='/bingo'){
@@ -302,6 +302,8 @@
       }
 
       decorateRecentDrops();
+      const recentDropsBox=document.getElementById('recentDrops');
+      if(recentDropsBox)new MutationObserver(()=>decorateRecentDrops()).observe(recentDropsBox,{childList:true});
 
       document.addEventListener('keydown',e=>{
         if(e.key==='Escape'&&playerDrawer.classList.contains('open'))closePlayer();

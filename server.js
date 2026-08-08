@@ -446,7 +446,57 @@ async function renderItemsPage() {
   return html;
 }
 
+function safeUsername(value) {
+  const username = String(value ?? '').trim();
+  return /^[A-Za-z0-9 _-]{1,12}$/.test(username) ? username : '';
+}
+
+function safeItemName(value) {
+  const name = String(value ?? '').trim();
+  return name && name.length <= 120 && !/[\r\n]/.test(name) ? name : '';
+}
+
+async function sendBinaryProxy(res, upstream, fallbackType, cacheControl) {
+  const type = upstream.headers.get('content-type') || fallbackType;
+  const bytes = Buffer.from(await upstream.arrayBuffer());
+  res.set('Content-Type', type);
+  res.set('Cache-Control', cacheControl);
+  res.set('X-Content-Type-Options', 'nosniff');
+  res.send(bytes);
+}
+
 app.get('/health', (_req,res)=>res.json({ status: 'ok' }));
+app.get('/api/runeprofile-model', async (req,res) => {
+  const username = safeUsername(req.query.username);
+  if (!username) return res.status(400).json({ error: 'A valid RuneScape username is required.' });
+  try {
+    const url = `https://www.runeprofile.com/api/profiles/models/${encodeURIComponent(username)}`;
+    const upstream = await fetch(url, { redirect: 'follow', headers: { 'User-Agent': 'RancourEvents/1.0 (+Bingo Wrapped)' } });
+    if (upstream.status === 404) return res.status(404).json({ error: 'No RuneProfile player model found.' });
+    if (!upstream.ok) return res.status(502).json({ error: `RuneProfile returned ${upstream.status}.` });
+    return await sendBinaryProxy(res, upstream, 'model/gltf-binary', 'public, max-age=300, s-maxage=300');
+  } catch (error) {
+    console.error('RuneProfile model proxy failed:', error);
+    return res.status(502).json({ error: 'Unable to load RuneProfile player model.' });
+  }
+});
+app.get('/api/item-image', async (req,res) => {
+  const name = safeItemName(req.query.name);
+  if (!name) return res.status(400).json({ error: 'A valid item name is required.' });
+  try {
+    const filename = `${name.replace(/\s+/g, '_')}_detail.png`;
+    const url = `https://oldschool.runescape.wiki/w/Special:Redirect/file/${encodeURIComponent(filename)}?width=128`;
+    const upstream = await fetch(url, { redirect: 'follow', headers: { 'User-Agent': 'RancourEvents/1.0 (+Bingo Wrapped)' } });
+    if (upstream.status === 404) return res.status(404).end();
+    if (!upstream.ok) return res.status(502).end();
+    const type = upstream.headers.get('content-type') || '';
+    if (!type.startsWith('image/')) return res.status(502).end();
+    return await sendBinaryProxy(res, upstream, 'image/png', 'public, max-age=86400, s-maxage=86400');
+  } catch (error) {
+    console.error('Item image proxy failed:', error);
+    return res.status(502).end();
+  }
+});
 app.get('/api/event', async (_req,res) => {
   try { const data = await loadEvent(); res.set('Cache-Control','public, max-age=30'); res.json(data); }
   catch (error) { console.error('Event data refresh failed:', error); res.status(503).json({ error: error.message }); }

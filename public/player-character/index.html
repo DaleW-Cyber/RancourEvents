@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow,noarchive">
+<title>Player Character</title>
+<style>
+html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent}body{display:grid;place-items:center}.stage{position:relative;width:100%;height:100%;min-height:240px;background:radial-gradient(circle at 50% 42%,rgba(116,86,48,.22),transparent 55%),linear-gradient(rgba(255,255,255,.025),rgba(0,0,0,.035));border:0}.stage canvas{display:block;width:100%;height:100%}.fallback{position:absolute;inset:0;display:none;place-items:center;text-align:center;color:#745a35;font:700 12px Georgia,"Times New Roman",serif;letter-spacing:.06em}.fallback .crest{width:88px;height:88px;margin:0 auto 10px;display:grid;place-items:center;border:3px ridge #9a7741;background:radial-gradient(circle,#b62a30,#70171b 70%);color:#f0d28f;font-size:48px;text-shadow:2px 2px #3a0b0c}.fallback.show{display:grid}
+</style>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/"}}</script>
+</head>
+<body>
+<div class="stage" id="stage"><div class="fallback" id="fallback"><div><div class="crest">R</div><div>No RuneProfile model</div></div></div></div>
+<script type="module">
+import * as THREE from 'three';
+import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
+import {PLYLoader} from 'three/addons/loaders/PLYLoader.js';
+
+const stage=document.getElementById('stage');
+const fallback=document.getElementById('fallback');
+const username=new URLSearchParams(location.search).get('username')?.trim()||'';
+
+async function loadObject(name){
+  const response=await fetch(`/api/runeprofile-model?username=${encodeURIComponent(name)}`,{cache:'force-cache'});
+  if(!response.ok)throw new Error(`Model ${response.status}`);
+  const buffer=await response.arrayBuffer();
+  const isGlb=buffer.byteLength>=4&&new DataView(buffer).getUint32(0,true)===0x46546c67;
+  if(isGlb){
+    const gltf=await new GLTFLoader().parseAsync(buffer,'');
+    const normalised=new THREE.Group();
+    normalised.rotation.x=Math.PI/2;
+    normalised.add(gltf.scene);
+    const wrapper=new THREE.Group();
+    wrapper.add(normalised);
+    return wrapper;
+  }
+  const geometry=new PLYLoader().parse(buffer);
+  geometry.computeBoundingBox();
+  return new THREE.Mesh(geometry,new THREE.MeshBasicMaterial({vertexColors:true}));
+}
+
+function fitObject(object){
+  object.rotation.set(-1.55,0,.1);
+  object.updateMatrixWorld(true);
+  let bounds=new THREE.Box3().setFromObject(object);
+  let centre=bounds.getCenter(new THREE.Vector3());
+  object.position.sub(centre);
+  object.updateMatrixWorld(true);
+  bounds=new THREE.Box3().setFromObject(object);
+  const size=bounds.getSize(new THREE.Vector3());
+  const scale=5.15/(Math.max(size.y,size.x*1.25,size.z)||1);
+  object.scale.multiplyScalar(scale);
+  object.updateMatrixWorld(true);
+  bounds=new THREE.Box3().setFromObject(object);
+  centre=bounds.getCenter(new THREE.Vector3());
+  object.position.x-=centre.x;
+  object.position.y-=centre.y;
+}
+
+async function render(){
+  if(!username){fallback.classList.add('show');return;}
+  const canvas=document.createElement('canvas');
+  stage.prepend(canvas);
+  const renderer=new THREE.WebGLRenderer({canvas,alpha:true,antialias:true});
+  renderer.outputColorSpace=THREE.SRGBColorSpace;
+  renderer.setPixelRatio(Math.min(devicePixelRatio||1,2));
+  renderer.setClearColor(0x000000,0);
+  const scene=new THREE.Scene();
+  scene.add(new THREE.AmbientLight(0xffffff,2.25));
+  const light=new THREE.DirectionalLight(0xffffff,1.9);light.position.set(3,4,7);scene.add(light);
+  const camera=new THREE.OrthographicCamera(-2.55,2.55,3.65,-3.65,.01,100);camera.position.set(0,0,10);camera.lookAt(0,0,0);
+  let object;
+  try{
+    object=await loadObject(username);
+    fitObject(object);
+    scene.add(object);
+  }catch(error){
+    console.debug('RuneProfile character unavailable:',error);
+    renderer.dispose();canvas.remove();fallback.classList.add('show');return;
+  }
+  const resize=()=>{
+    const rect=stage.getBoundingClientRect();
+    renderer.setSize(Math.max(1,rect.width),Math.max(1,rect.height),false);
+    const aspect=Math.max(.35,rect.width/Math.max(1,rect.height));
+    const vertical=3.65;
+    camera.top=vertical;camera.bottom=-vertical;camera.left=-vertical*aspect;camera.right=vertical*aspect;camera.updateProjectionMatrix();
+    renderer.render(scene,camera);
+  };
+  new ResizeObserver(resize).observe(stage);
+  resize();
+}
+render();
+</script>
+</body>
+</html>

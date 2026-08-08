@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow,noarchive">
+<title>Rancour PvM — Bingo Wrapped Generator</title>
+<style>
+:root{--bg:#11100e;--panel:#211d17;--panel2:#2d261d;--border:#786443;--red:#b82025;--red2:#72181c;--gold:#d2a44b;--cream:#f2e6c8;--muted:#a49375;--blue:#65a9f1;--green:#6ca45a}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 15% 0%,rgba(184,32,37,.16),transparent 28%),linear-gradient(#15120e,#211c16);color:var(--cream);font-family:Georgia,"Times New Roman",serif;min-height:100vh}.page{max-width:1460px;margin:auto;padding:18px}.masthead{border:3px ridge #7d6235;background:linear-gradient(90deg,#251e17,#3c3023,#251e17);box-shadow:0 7px 0 #0e0c09,inset 0 0 0 2px #15110d;padding:12px 15px;display:grid;grid-template-columns:auto 1fr;gap:14px;align-items:center}.crest{width:64px;height:64px;display:grid;place-items:center;background:radial-gradient(circle,#b62a30,#70171b 70%);border:3px ridge #c39a4f;box-shadow:inset 0 0 0 2px #3b0e10;font:bold 35px/1 Georgia;color:#f0d28f;text-shadow:2px 2px #3a0b0c}.kicker{font-size:10px;letter-spacing:.17em;text-transform:uppercase;color:#c8ad72}.masthead h1{margin:2px 0 0;font-size:34px;color:#f3dfb4}.hidden-note{margin:13px 0;padding:8px 10px;border:2px dashed #665538;background:#1d1914;color:#9f9075;font-size:10px}.layout{display:grid;grid-template-columns:350px minmax(0,1fr);gap:16px;align-items:start}.panel{border:3px ridge var(--border);background:linear-gradient(#332d25,#211d17);box-shadow:inset 0 0 0 2px #17130f,0 5px 0 #0d0b08}.panel-title{padding:8px 10px;background:linear-gradient(#4a3e2d,#2d251c);border-bottom:2px groove #796746;color:#e7cf9c;font-weight:bold;font-size:13px;letter-spacing:.06em}.controls{padding:13px}.field{margin-bottom:12px}.field label{display:block;margin-bottom:5px;color:#ac9b7b;font-size:9px;text-transform:uppercase;letter-spacing:.1em}.select,.btn{width:100%;min-height:42px;border:3px outset #7b6847;background:linear-gradient(#554731,#30271c);color:#f0ddb4;padding:7px 10px;font:inherit}.select{cursor:pointer}.btn{cursor:pointer;font-weight:bold}.btn.red{background:linear-gradient(#a52c31,#63181c);border-color:#aa7c4b}.btn:disabled{opacity:.5;cursor:wait}.btn+.btn{margin-top:8px}.status{margin-top:12px;padding:9px;border:1px solid #554735;background:#191611;color:#a8997e;font-size:10px;line-height:1.5}.status strong{color:#d9b45d}.member-summary{margin-top:12px;display:grid;grid-template-columns:1fr 1fr;gap:6px}.mini-stat{border:2px inset #554735;background:#1d1914;padding:8px}.mini-stat b{display:block;color:#8f8168;font-size:8px;text-transform:uppercase;letter-spacing:.08em}.mini-stat span{display:block;margin-top:3px;color:#e2c77f;font-size:18px;font-weight:bold}.preview-panel{padding:12px}.canvas-wrap{width:min(100%,600px);margin:auto;background:#070709;border:3px ridge #786443;box-shadow:0 12px 38px rgba(0,0,0,.6);line-height:0}.canvas-wrap canvas{display:block;width:100%;height:auto}.tip{margin:12px auto 0;max-width:600px;color:#9d8e73;font-size:10px;line-height:1.45}.rp-good{color:#7fbd6c}.rp-missing{color:#b79e6f}.error{color:#d98282}@media(max-width:900px){.layout{grid-template-columns:1fr}.member-summary{grid-template-columns:repeat(4,1fr)}}@media(max-width:560px){.page{padding:9px}.masthead h1{font-size:27px}.member-summary{grid-template-columns:1fr 1fr}}
+</style>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/"}}</script>
+</head>
+<body>
+<div class="page">
+<header class="masthead"><div class="crest">R</div><div><div class="kicker">Rancour PvM • Summer Bingo 2026</div><h1>Bingo Wrapped Generator</h1></div></header>
+<div class="hidden-note"><strong>Unlisted tool:</strong> this page is deliberately not included in the site navigation. Select a member to build a live preview from the current bingo workbook.</div>
+<div class="layout">
+<aside class="panel"><div class="panel-title">Generate Wrapped</div><div class="controls">
+<div class="field"><label for="member">Member</label><select class="select" id="member"><option>Loading members…</option></select></div>
+<button class="btn red" id="generate">Generate Wrapped</button>
+<button class="btn" id="download" disabled>Download PNG</button>
+<button class="btn" id="profile" disabled>Open RuneProfile</button>
+<div class="status" id="status"><strong>Loading event data…</strong></div>
+<div class="member-summary" id="memberSummary"></div>
+</div></aside>
+<main class="panel preview-panel"><div class="canvas-wrap"><canvas id="wrapped" width="1080" height="1920"></canvas></div><div class="tip">The exported image is 1080×1920 for Discord/mobile sharing. RuneProfile character models are used when available; received bingo-item artwork is loaded from the OSRS Wiki detailed-item images.</div></main>
+</div></div>
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+const canvas=document.getElementById('wrapped');
+const ctx=canvas.getContext('2d');
+const memberSelect=document.getElementById('member');
+const generateBtn=document.getElementById('generate');
+const downloadBtn=document.getElementById('download');
+const profileBtn=document.getElementById('profile');
+const statusBox=document.getElementById('status');
+const memberSummary=document.getElementById('memberSummary');
+let eventData=null;
+let selected=null;
+const itemCache=new Map();
+const modelCache=new Map();
+
+const C={bg:'#0b0b0d',panel:'#151519',panel2:'#1c1c21',red:'#d9262e',redDark:'#6f1116',gold:'#d2a44b',cream:'#f4ead6',muted:'#a69a86',white:'#fff',green:'#6dbb62',blue:'#5aa8ff',border:'#3a2c25'};
+const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
+const num=v=>{const s=String(v??'').trim();if(!s||s.startsWith('#')||/^error$/i.test(s)||/^[-–—]+$/.test(s))return 0;const n=Number(s.replace(/,/g,'').replace(/[^\d.+-]/g,''));return Number.isFinite(n)?n:0};
+const metric=v=>{const n=num(v);return Number.isInteger(n)?n.toLocaleString('en-GB'):n.toLocaleString('en-GB',{maximumFractionDigits:2})};
+const tileProgress=t=>{const n=Number(t?.progress||0);return Number.isFinite(n)?Math.max(0,Math.min(100,n)):0};
+const isBingoDrop=d=>{const v=String(d?.tile||'').trim();return !!v&&!/^not a bingo item$/i.test(v)};
+
+function rounded(x,y,w,h,r,fill,stroke=C.border,line=2){ctx.beginPath();ctx.roundRect(x,y,w,h,r);ctx.fillStyle=fill;ctx.fill();if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=line;ctx.stroke()}}
+function txt(s,x,y,size,color=C.cream,weight='400',align='left',family='Georgia'){ctx.font=`${weight} ${size}px ${family}`;ctx.fillStyle=color;ctx.textAlign=align;ctx.textBaseline='alphabetic';ctx.fillText(String(s),x,y)}
+function fitText(s,x,y,maxWidth,maxSize,minSize,color=C.cream,weight='700',align='left'){let size=maxSize;while(size>minSize){ctx.font=`${weight} ${size}px Georgia`;if(ctx.measureText(String(s)).width<=maxWidth)break;size-=2}txt(s,x,y,size,color,weight,align)}
+function wrap(s,x,y,maxWidth,lineHeight,size,color=C.cream,weight='400',maxLines=4){const words=String(s).split(/\s+/),lines=[];let line='';ctx.font=`${weight} ${size}px Georgia`;for(const word of words){const test=(line+' '+word).trim();if(ctx.measureText(test).width<=maxWidth)line=test;else{if(line)lines.push(line);line=word;if(lines.length>=maxLines-1)break}}if(line&&lines.length<maxLines)lines.push(line);lines.forEach((l,i)=>txt(l,x,y+i*lineHeight,size,color,weight));return lines.length}
+function progress(x,y,w,h,p,color=C.red){rounded(x,y,w,h,h/2,'#303036',null,0);const fw=Math.max(0,Math.min(w,w*p/100));if(fw>1)rounded(x,y,fw,h,h/2,color,null,0)}
+function rank(team,key,player){const sorted=(team.roster||[]).map(p=>({p,n:num(p[key])})).sort((a,b)=>b.n-a.n||a.p.name.localeCompare(b.p.name));const i=sorted.findIndex(x=>Number(x.p.number)===Number(player.number));return i<0?'—':`#${i+1}`}
+function findTile(team,drop){if(Number(drop?.tileId)>0)return (team.tiles||[]).find(t=>Number(t.id)===Number(drop.tileId));const ref=String(drop?.tile||'').trim().toLowerCase();return (team.tiles||[]).find(t=>String(t.title||'').trim().toLowerCase()===ref)}
+function playerData(team,player){const name=String(player.name||'').trim().toLowerCase();const drops=(team.drops||[]).filter(d=>String(d.member||'').trim().toLowerCase()===name);const bingo=drops.filter(isBingoDrop);const groups=new Map();for(const d of bingo){const tile=findTile(team,d);const key=tile?`#${tile.id} ${tile.title}`:(String(d.tile||'Unknown tile').trim()||'Unknown tile');if(!groups.has(key))groups.set(key,{key,tile,count:0,drops:[]});const g=groups.get(key);g.count++;g.drops.push(d)}const contributions=[...groups.values()].sort((a,b)=>b.count-a.count||(b.tile?tileProgress(b.tile):0)-(a.tile?tileProgress(a.tile):0));const teamDrops=(team.drops||[]).length;return{drops,bingo,contributions,signature:contributions[0]||null,share:teamDrops?drops.length/teamDrops*100:0,dropRank:rank(team,'dropPoints',player),ehbRank:rank(team,'ehbGained',player)}}
+
+function memberOptions(){const opts=[];(eventData?.teams||[]).forEach((team,ti)=>{opts.push(`<optgroup label="${esc(team.number)} — ${esc(team.name)}">`);(team.roster||[]).forEach(p=>opts.push(`<option value="${ti}:${Number(p.number)}">${esc(p.name)}</option>`));opts.push('</optgroup>')});memberSelect.innerHTML=opts.join('');const mut=[...memberSelect.options].find(o=>o.textContent.trim().toLowerCase()==='muttadale');if(mut)memberSelect.value=mut.value}
+function resolveSelection(){const [ti,pn]=String(memberSelect.value).split(':').map(Number);const team=eventData?.teams?.[ti];const player=team?.roster?.find(p=>Number(p.number)===pn);return team&&player?{team,player,teamIndex:ti}:null}
+function wikiUrl(name){const filename=`${String(name||'').trim().replace(/\s+/g,'_')}_detail.png`;return `https://oldschool.runescape.wiki/w/Special:Redirect/file/${encodeURIComponent(filename)}?width=128`}
+function loadImage(url){if(itemCache.has(url))return itemCache.get(url);const p=new Promise(resolve=>{const img=new Image();img.crossOrigin='anonymous';img.onload=()=>resolve(img);img.onerror=()=>resolve(null);img.src=url});itemCache.set(url,p);return p}
+
+async function loadRuneProfileModel(username){const key=username.toLowerCase();if(modelCache.has(key))return modelCache.get(key);const promise=(async()=>{const render=document.createElement('canvas');render.width=520;render.height=760;const renderer=new THREE.WebGLRenderer({canvas:render,alpha:true,antialias:true,preserveDrawingBuffer:true});renderer.setSize(520,760,false);renderer.setPixelRatio(1);renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.setClearColor(0x000000,0);const scene=new THREE.Scene();scene.add(new THREE.AmbientLight(0xffffff,2.3));const keyLight=new THREE.DirectionalLight(0xffffff,2.1);keyLight.position.set(3,4,7);scene.add(keyLight);const fill=new THREE.DirectionalLight(0xffc58a,1.0);fill.position.set(-4,1,3);scene.add(fill);const camera=new THREE.PerspectiveCamera(28,520/760,.01,100);camera.position.set(0,.1,7);const loader=new GLTFLoader();const modelUrl=`https://www.runeprofile.com/api/profiles/models/${encodeURIComponent(username)}`;let gltf;try{gltf=await loader.loadAsync(modelUrl)}catch(e){renderer.dispose();return null}const model=gltf.scene;model.rotation.set(-1.55,0,.1);scene.add(model);model.updateMatrixWorld(true);let box=new THREE.Box3().setFromObject(model),size=box.getSize(new THREE.Vector3()),center=box.getCenter(new THREE.Vector3());model.position.sub(center);model.updateMatrixWorld(true);box=new THREE.Box3().setFromObject(model);size=box.getSize(new THREE.Vector3());const max=Math.max(size.x,size.y,size.z)||1;const scale=4.7/max;model.scale.multiplyScalar(scale);model.updateMatrixWorld(true);box=new THREE.Box3().setFromObject(model);center=box.getCenter(new THREE.Vector3());model.position.x-=center.x;model.position.y-=center.y-.15;renderer.render(scene,camera);return{canvas:render,renderer}})();modelCache.set(key,promise);return promise}
+
+function crest(x,y,size){ctx.save();const g=ctx.createRadialGradient(x,y,4,x,y,size/2);g.addColorStop(0,'#b62a30');g.addColorStop(1,'#70171b');ctx.fillStyle=g;ctx.beginPath();ctx.roundRect(x-size/2,y-size/2,size,size,20);ctx.fill();ctx.strokeStyle=C.gold;ctx.lineWidth=4;ctx.stroke();txt('R',x,y+size*.18,size*.56,'#f0d28f','700','center');ctx.restore()}
+function statCard(x,y,w,h,label,value,accent,sub=''){rounded(x,y,w,h,18,C.panel2,C.border,2);ctx.fillStyle=accent;ctx.fillRect(x,y,7,h);txt(label.toUpperCase(),x+24,y+31,18,C.muted,'700');fitText(value,x+24,y+85,w-48,42,26,C.cream,'700');if(sub)fitText(sub,x+24,y+h-22,w-48,16,13,C.muted,'400')}
+function drawPlaceholderCharacter(x,y,w,h,username){rounded(x,y,w,h,24,'#101014',C.border,2);crest(x+w/2,y+h*.40,150);txt('RANCOUR MEMBER',x+w/2,y+h*.70,21,C.gold,'700','center');fitText(username,x+w/2,y+h*.80,w-50,30,18,C.cream,'700','center')}
+function drawImageContain(img,x,y,w,h){if(!img)return;const scale=Math.min(w/img.width,h/img.height);const iw=img.width*scale,ih=img.height*scale;ctx.drawImage(img,x+(w-iw)/2,y+(h-ih)/2,iw,ih)}
+
+async function drawWrapped(sel){const {team,player}=sel;const pd=playerData(team,player);downloadBtn.disabled=true;generateBtn.disabled=true;statusBox.innerHTML='<strong>Generating…</strong> loading item artwork and checking RuneProfile.';ctx.clearRect(0,0,1080,1920);const bg=ctx.createLinearGradient(0,0,0,1920);bg.addColorStop(0,'#09090b');bg.addColorStop(.45,'#111014');bg.addColorStop(1,'#08080a');ctx.fillStyle=bg;ctx.fillRect(0,0,1080,1920);const glow=ctx.createRadialGradient(120,100,0,120,100,650);glow.addColorStop(0,'rgba(190,27,35,.36)');glow.addColorStop(1,'rgba(190,27,35,0)');ctx.fillStyle=glow;ctx.fillRect(0,0,760,760);
+
+crest(108,106,108);txt('RANCOUR PvM',185,76,27,C.red,'700');txt('SUMMER BINGO 2026',185,115,38,C.cream,'700');txt('WRAPPED',185,174,69,C.gold,'700');rounded(185,198,310,38,19,'#24161a',C.border,1);txt('PERSONALISED EVENT RECAP',340,224,14,C.muted,'700','center');
+
+rounded(58,278,964,225,26,'#111115',C.border,2);fitText(player.name,88,354,600,66,36,C.white,'700');fitText(`${team.name}  •  ${team.number}`,90,405,600,27,18,C.blue,'700');txt(`Drop Pts ${pd.dropRank} on team  •  EHB ${pd.ehbRank} on team`,90,448,18,C.muted,'400');txt('Your event. Your drops. Your story.',90,478,17,C.muted,'400');
+
+const character=await loadRuneProfileModel(player.name);if(character){rounded(710,303,276,176,20,'#0c0c0f',C.border,1);ctx.save();ctx.beginPath();ctx.roundRect(710,303,276,176,20);ctx.clip();ctx.drawImage(character.canvas,748,288,200,292);ctx.restore();txt('CHARACTER VIA RUNEPROFILE',848,466,11,C.green,'700','center')}else{rounded(710,303,276,176,20,'#0c0c0f',C.border,1);crest(848,378,92);txt('NO RUNEPROFILE MODEL',848,463,11,C.muted,'700','center')}
+
+const gap=18,cw=(964-gap)/2,ch=150,x0=58,y0=540;statCard(x0,y0,cw,ch,'Drop Points',metric(player.dropPoints),C.gold,`${pd.dropRank} on ${team.name}`);statCard(x0+cw+gap,y0,cw,ch,'EHB Gained',metric(player.ehbGained),C.blue,`${pd.ehbRank} on ${team.name}`);statCard(x0,y0+ch+gap,cw,ch,'Recorded Drops',String(pd.drops.length),C.red,`${pd.bingo.length} bingo-linked`);statCard(x0+cw+gap,y0+ch+gap,cw,ch,'Team Drop Share',`${pd.share.toFixed(1)}%`,C.green,`${team.drops?.length||0} team drops recorded`);
+
+const sy=870;rounded(58,sy,964,300,26,'#111115',C.border,2);txt('YOUR BINGO IMPACT',88,sy+42,20,C.gold,'700');if(pd.signature){const s=pd.signature;fitText(s.tile?.title||s.key.replace(/^#\d+\s*/,''),88,sy+92,600,40,24,C.cream,'700');const sub=s.tile?`${s.tile.content} • Tile ${s.tile.id}`:'Bingo contribution';txt(sub,90,sy+126,18,C.muted,'400');txt(`${s.count} recorded drop${s.count===1?'':'s'} contributed`,90,sy+174,24,C.white,'700');if(s.tile){txt('Current team tile progress',90,sy+213,15,C.muted,'700');progress(90,sy+230,630,20,tileProgress(s.tile),C.red);txt(`${tileProgress(s.tile).toFixed(1)}%`,747,sy+247,27,C.cream,'700','right')}const names=s.drops.slice(0,3).map(d=>d.drop).join(' • ');wrap(names,90,sy+280,820,22,16,C.muted,'400',2)}else{fitText('THE GRIND CONTINUES',88,sy+96,800,40,25,C.cream,'700');wrap('No bingo-linked drops are recorded for this player yet. EHB and roster statistics still form part of their Wrapped.',90,sy+145,820,29,20,C.muted,'400',3)}
+
+const topY=1210;rounded(58,topY,964,402,26,'#111115',C.border,2);txt('ITEMS YOU RECEIVED',88,topY+42,20,C.gold,'700');const top=pd.drops.slice(0,5);if(top.length){const imgs=await Promise.all(top.map(d=>loadImage(wikiUrl(d.drop))));const rowH=62;top.forEach((drop,i)=>{const yy=topY+70+i*rowH;if(i) {ctx.strokeStyle='#332b24';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(88,yy);ctx.lineTo(992,yy);ctx.stroke()}rounded(91,yy+7,48,48,9,'#26221b','#4e412f',1);if(imgs[i])drawImageContain(imgs[i],94,yy+10,42,42);txt(String(i+1),155,yy+40,18,C.gold,'700');fitText(drop.drop,190,yy+36,500,24,16,C.cream,'700');fitText(drop.tile||'Not assigned',705,yy+36,265,16,12,C.muted,'400','right')})}else{txt('No recorded drops yet.',90,topY+105,22,C.muted,'400')}
+
+const fy=1650;rounded(58,fy,964,205,26,'#151116',C.redDark,3);txt('MY BINGO WRAPPED',88,fy+49,20,C.gold,'700');fitText(player.name,88,fy+105,560,45,27,C.cream,'700');fitText(`${team.name} • ${pd.drops.length} drops • ${metric(player.dropPoints)} pts • ${metric(player.ehbGained)} EHB`,90,fy+145,820,20,14,C.muted,'400');txt('RANCOUR PvM  •  SUMMER BINGO 2026',90,fy+183,17,C.red,'700');crest(925,fy+103,105);
+
+txt('Generated from the live Rancour event workbook',58,1890,14,C.muted,'400');txt(character?'RuneProfile character model detected':'RuneProfile model unavailable — Rancour fallback used',1022,1890,14,character?C.green:C.muted,'400','right');
+
+selected={...sel,pd,hasRuneProfile:!!character};renderSummary();statusBox.innerHTML=character?`<strong class="rp-good">Wrapped ready.</strong> RuneProfile character model found for ${esc(player.name)}.`:`<strong class="rp-missing">Wrapped ready.</strong> No RuneProfile character model could be loaded for ${esc(player.name)}; the Rancour fallback is being used.`;profileBtn.disabled=false;downloadBtn.disabled=false;generateBtn.disabled=false}
+
+function renderSummary(){if(!selected){memberSummary.innerHTML='';return}const {player,pd}=selected;memberSummary.innerHTML=`<div class="mini-stat"><b>Drop Points</b><span>${esc(metric(player.dropPoints))}</span></div><div class="mini-stat"><b>EHB</b><span>${esc(metric(player.ehbGained))}</span></div><div class="mini-stat"><b>Drops</b><span>${pd.drops.length}</span></div><div class="mini-stat"><b>Tiles Helped</b><span>${pd.contributions.length}</span></div>`}
+
+function blank(){ctx.fillStyle=C.bg;ctx.fillRect(0,0,1080,1920);crest(540,630,200);txt('BINGO WRAPPED',540,820,58,C.gold,'700','center');txt('Select a member to generate their event recap',540,880,25,C.muted,'400','center')}
+async function generate(){const sel=resolveSelection();if(!sel)return;await drawWrapped(sel)}
+
+async function loadData(){try{const r=await fetch(`/api/event?wrapped=${Date.now()}`,{cache:'no-store'}),b=await r.json().catch(()=>({}));if(!r.ok)throw new Error(b.error||`Event API returned ${r.status}`);eventData=b;memberOptions();statusBox.innerHTML=`<strong>Event data loaded.</strong> ${b.teams?.reduce((n,t)=>n+(t.roster?.length||0),0)||0} members available.`;await generate()}catch(e){console.error(e);statusBox.innerHTML=`<strong class="error">Unable to load event data.</strong> ${esc(e.message)}`}}
+
+generateBtn.onclick=generate;memberSelect.onchange=generate;downloadBtn.onclick=()=>{if(!selected)return;canvas.toBlob(blob=>{if(!blob)return;const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`rancour-bingo-wrapped-${selected.player.name.toLowerCase().replace(/[^a-z0-9]+/g,'-')}.png`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1500)},'image/png')};profileBtn.onclick=()=>{const sel=resolveSelection();if(sel)window.open(`https://www.runeprofile.com/${encodeURIComponent(sel.player.name)}`,'_blank','noopener')};blank();loadData();
+</script>
+</body>
+</html>

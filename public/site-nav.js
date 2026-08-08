@@ -129,6 +129,7 @@
     };
     const activeClass=(type,team)=>{
       if(type==='stats'&&(path==='/'||path==='/stats'))return' active';
+      if(type==='drops'&&(path==='/drops'||path==='/drops/'))return' active';
       if(type==='items'&&path==='/items')return' active';
       if(type==='team'&&path==='/bingo'&&Number(team)===teamParam)return' active';
       return'';
@@ -141,7 +142,7 @@
 
     function render(teams){
       const rows=(teams?.length?teams:fallback).slice(0,3);
-      list.innerHTML=`<a class="site-nav-link${activeClass('stats')}" href="/"><span class="site-nav-sig">S</span><span class="site-nav-name"><b>Event Stats</b><span class="site-nav-meta">Rankings & leaderboards</span></span><span class="site-nav-value">Home</span></a><div class="site-nav-divider">Team Bingo Boards</div>${rows.map((t,i)=>{const n=i+1,s=teamStat(t),players=t?.roster?.length;return`<a class="site-nav-link${activeClass('team',n)}" href="/bingo?team=${n}" data-site-team="${n}"><span class="site-nav-sig">${n}</span><span class="site-nav-name"><b>${esc(t.name||`Team ${n}`)}</b><span class="site-nav-meta">${players?`${players} players`:`Team ${String(n).padStart(2,'0')}`}</span></span><span class="site-nav-value">${s.toFixed(1)}%</span></a>`}).join('')}<div class="site-nav-divider">Reference</div><a class="site-nav-link${activeClass('items')}" href="/items"><span class="site-nav-sig">I</span><span class="site-nav-name"><b>Item List</b><span class="site-nav-meta">Loot & pet ledger</span></span><span class="site-nav-value">Open</span></a>`;
+      list.innerHTML=`<a class="site-nav-link${activeClass('stats')}" href="/"><span class="site-nav-sig">S</span><span class="site-nav-name"><b>Event Stats</b><span class="site-nav-meta">Rankings & leaderboards</span></span><span class="site-nav-value">Home</span></a><div class="site-nav-divider">Team Bingo Boards</div>${rows.map((t,i)=>{const n=i+1,s=teamStat(t),players=t?.roster?.length;return`<a class="site-nav-link${activeClass('team',n)}" href="/bingo?team=${n}" data-site-team="${n}"><span class="site-nav-sig">${n}</span><span class="site-nav-name"><b>${esc(t.name||`Team ${n}`)}</b><span class="site-nav-meta">${players?`${players} players`:`Team ${String(n).padStart(2,'0')}`}</span></span><span class="site-nav-value">${s.toFixed(1)}%</span></a>`}).join('')}<div class="site-nav-divider">Reference</div><a class="site-nav-link${activeClass('drops')}" href="/drops/"><span class="site-nav-sig">D</span><span class="site-nav-name"><b>Drop Log</b><span class="site-nav-meta">All team drops</span></span><span class="site-nav-value">Open</span></a><a class="site-nav-link${activeClass('items')}" href="/items"><span class="site-nav-sig">I</span><span class="site-nav-name"><b>Item List</b><span class="site-nav-meta">Loot & pet ledger</span></span><span class="site-nav-value">Open</span></a>`;
 
       if(path==='/bingo'){
         list.querySelectorAll('[data-site-team]').forEach(a=>a.addEventListener('click',e=>{

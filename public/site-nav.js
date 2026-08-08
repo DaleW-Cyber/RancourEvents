@@ -1,6 +1,7 @@
 (()=>{
   const mount=()=>{
     const path=location.pathname;
+    const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
 
     const mastKicker=document.querySelector('.masthead .kicker');
     if(mastKicker){
@@ -312,7 +313,6 @@
 
     root.innerHTML='<div class="site-nav-wrap"><section class="site-nav-frame"><div class="site-nav-title">Navigation</div><div class="site-nav-list" id="siteNavList"><div class="site-nav-loading">Loading event navigation…</div></div></section></div>';
     const list=document.getElementById('siteNavList');
-    const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
     const teamParam=Math.max(1,Math.min(99,Number(new URLSearchParams(location.search).get('team'))||1));
     const teamStat=t=>{
       const values=(t?.tiles||[]).map(x=>Number(x?.progress||0)).filter(Number.isFinite);

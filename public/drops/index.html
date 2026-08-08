@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Rancour PvM Summer Bingo 2026 — Drop Log</title>
+<link rel="stylesheet" href="/site-nav.css">
+<style>
+:root{--parch:#d7c59e;--ink:#2b2015;--cream:#f2e6c8;--red:#9f2428;--gold:#c5943c}
+*{box-sizing:border-box}
+body{margin:0;background:repeating-linear-gradient(0deg,rgba(255,255,255,.012) 0 1px,transparent 1px 3px),linear-gradient(#17140f,#221d17);color:var(--cream);font-family:Georgia,"Times New Roman",serif}
+body:before{content:"";position:fixed;inset:0;pointer-events:none;background:radial-gradient(circle at 20% 0%,rgba(159,36,40,.12),transparent 28%),radial-gradient(circle at 100% 10%,rgba(197,148,60,.08),transparent 25%)}
+button,select,input{font:inherit}
+.page{max-width:1500px;margin:auto;padding:14px 16px 40px}
+.masthead{border:3px ridge #7d6235;background:linear-gradient(rgba(255,255,255,.02),rgba(0,0,0,.2)),linear-gradient(90deg,#251e17,#3c3023,#251e17);box-shadow:0 7px 0 #0e0c09,inset 0 0 0 2px #15110d;padding:10px 14px;display:grid;grid-template-columns:auto 1fr auto;gap:14px;align-items:center}
+.crest{width:58px;height:58px;display:grid;place-items:center;background:radial-gradient(circle,#b62a30,#70171b 70%);border:3px ridge #c39a4f;box-shadow:inset 0 0 0 2px #3b0e10;font:bold 32px/1 Georgia;color:#f0d28f;text-shadow:2px 2px #3a0b0c}
+.kicker{font-size:11px;letter-spacing:.18em;color:#c8ad72;text-transform:uppercase}
+h1{margin:1px 0 0;font-size:34px;letter-spacing:.03em;color:#f3dfb4;text-shadow:2px 2px #000}
+.mast-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
+.osrs-btn,.osrs-select,.search{border:3px outset #7b6847;background:linear-gradient(#554731,#30271c);color:#f0ddb4;padding:7px 10px;min-height:38px;text-shadow:1px 1px #000}
+.osrs-btn{cursor:pointer;text-decoration:none}.osrs-btn:active{border-style:inset}.osrs-btn:disabled{opacity:.6}
+.live-strip{margin-top:12px;padding:7px 10px;border:2px ridge #786443;background:#211b14;color:#a99572;font-size:10px;display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}.live-strip strong{color:#d7b963}.live-strip.error{border-color:#8d3739;background:#321719;color:#e3a4a6}
+.hero{padding:16px 18px;background:linear-gradient(rgba(255,255,255,.05),rgba(0,0,0,.05)),repeating-linear-gradient(0deg,rgba(92,65,32,.025) 0 1px,transparent 1px 4px),var(--parch);color:var(--ink);border:4px ridge #7c6036;box-shadow:inset 0 0 35px rgba(84,51,16,.18),0 7px 0 #0d0b08;display:grid;grid-template-columns:1fr auto;gap:18px;align-items:end}
+.hero small{display:block;color:#6d512b;font-weight:bold;text-transform:uppercase;letter-spacing:.15em}.hero h2{font-size:44px;line-height:1;margin:5px 0 8px;color:#4e1d18}.hero p{margin:0;max-width:780px;font-size:12px;line-height:1.5;color:#604d35}
+.hero-stats{display:grid;grid-template-columns:repeat(3,105px);gap:6px}.hero-stat{background:#30291f;color:#ead9b3;border:3px ridge #816943;padding:9px;text-align:center}.hero-stat strong{display:block;font-size:24px;color:#e1bd62}.hero-stat span{font-size:8px;color:#a49375;text-transform:uppercase;letter-spacing:.08em}
+.controls{display:flex;justify-content:space-between;gap:8px;align-items:center;flex-wrap:wrap;margin:14px 0 8px}.filters{display:flex;gap:6px;flex-wrap:wrap}.search{width:280px;background:#241e16}.search::placeholder{color:#93846c}
+.result-count{font-size:10px;color:#aa997b;padding:0 4px}
+.ledger{background:#19150f;border:3px ridge #6f5b3c;padding:10px;box-shadow:0 5px 0 #0d0b08}
+.table-wrap{overflow:auto;max-height:calc(100vh - 315px);min-height:360px;scrollbar-width:thin;scrollbar-color:#80663d #18140f}
+.table-wrap::-webkit-scrollbar{height:11px;width:11px}.table-wrap::-webkit-scrollbar-track{background:#18140f}.table-wrap::-webkit-scrollbar-thumb{background:linear-gradient(90deg,#5b482d,#8d7040,#5b482d);border:2px solid #211a12}
+table{width:100%;border-collapse:collapse;background:#d0bb8d;color:#2b2015;min-width:850px}
+thead{position:sticky;top:0;z-index:2}th{padding:8px;background:#b9a274;color:#55351f;text-align:left;font-size:9px;text-transform:uppercase;letter-spacing:.07em;border-bottom:2px solid #806947;white-space:nowrap}
+td{padding:7px 8px;border-bottom:1px dotted #8d754e;font-size:11px;vertical-align:middle}tbody tr:hover td{background:rgba(255,255,255,.08)}
+.drop-no{width:52px;text-align:center;font-weight:bold;color:#684720}.drop-image-cell{width:62px}.drop-image-wrap{width:48px;height:48px;display:grid;place-items:center;background:radial-gradient(circle,#b9a476,#8e774f 75%);border:2px inset #8d754e}.drop-image{display:block;max-width:44px;max-height:44px;width:auto;height:auto;object-fit:contain;filter:drop-shadow(1px 2px 1px rgba(0,0,0,.55))}.drop-image-wrap.missing:after{content:"?";color:#745d39;font:bold 18px Georgia}
+.item-name{font-weight:bold;color:#55221c}.member{font-weight:bold}.team-name{white-space:nowrap;color:#6b1d20}.tile-name{min-width:190px}.not-bingo{color:#76684f;font-style:italic}.team-badge{display:inline-block;padding:3px 6px;border:1px solid #7a613c;background:#ab966b;font-size:8px;text-transform:uppercase;letter-spacing:.05em;margin-right:5px}
+.empty{padding:24px;text-align:center;color:#99896c;background:#211d17;font-size:11px}
+@media(max-width:900px){.masthead{grid-template-columns:auto 1fr}.mast-actions{grid-column:1/-1;justify-content:flex-start}.hero{grid-template-columns:1fr}.hero-stats{grid-template-columns:repeat(3,1fr)}.table-wrap{max-height:none}.search{width:100%}}
+@media(max-width:600px){.filters,.osrs-select,.osrs-btn,.search{width:100%}.hero h2{font-size:34px}.hero-stats{grid-template-columns:1fr 1fr 1fr}.page{padding-left:9px;padding-right:9px}}
+</style>
+<script defer src="/site-nav.js"></script>
+</head>
+<body>
+<div class="page">
+<header class="masthead">
+  <div class="crest">R</div>
+  <div><div class="kicker">Rancour PvM • Summer Bingo 2026</div><h1>Drop Log</h1></div>
+  <div class="mast-actions"><button class="osrs-btn" id="refreshBtn">↻ Refresh data</button><a class="osrs-btn" id="sheetLink" href="#" target="_blank" rel="noopener noreferrer">Source Sheet ↗</a><a class="osrs-btn" href="https://ko-fi.com/daleeuw" target="_blank" rel="noopener noreferrer">☕ Ko-fi</a></div>
+</header>
+<div class="live-strip" id="liveStrip"><span><strong>LIVE</strong> Loading combined drop history…</span><span>Connecting…</span></div>
+<div class="site-shell">
+<aside class="site-sidebar"><div id="siteNav"></div></aside>
+<main class="site-main">
+<section class="hero">
+  <div><small>All teams combined</small><h2>Full Drop Log</h2><p>Every logged drop across all competing teams, combined into a single searchable ledger.</p></div>
+  <div class="hero-stats"><div class="hero-stat"><strong id="dropCount">0</strong><span>Total drops</span></div><div class="hero-stat"><strong id="bingoCount">0</strong><span>Bingo drops</span></div><div class="hero-stat"><strong id="teamCount">0</strong><span>Teams</span></div></div>
+</section>
+<div class="controls">
+  <div class="filters"><input class="search" id="search" placeholder="Search item, player, team or tile…"><select class="osrs-select" id="teamFilter"><option value="all">All teams</option></select><select class="osrs-select" id="typeFilter"><option value="all">All drops</option><option value="bingo">Bingo drops only</option><option value="other">Non-bingo drops only</option></select></div>
+  <div class="result-count" id="resultCount">0 drops</div>
+</div>
+<section class="ledger"><div class="table-wrap"><table><thead><tr><th>Image</th><th>#</th><th>Item</th><th>Player</th><th>Team</th><th>Tile</th></tr></thead><tbody id="dropRows"><tr><td colspan="6" class="empty">Loading drop history…</td></tr></tbody></table></div></section>
+</main>
+</div>
+</div>
+<script>
+let data=null;
+let drops=[];
+const state={search:'',team:'all',type:'all'};
+const $=id=>document.getElementById(id);
+const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
+const isBingo=drop=>String(drop?.tile||'').trim()&&String(drop?.tile||'').trim().toLowerCase()!=='not a bingo item';
+function wikiDetailedImageUrl(itemName){const filename=`${String(itemName||'').trim().replace(/\s+/g,'_')}_detail.png`;return `https://oldschool.runescape.wiki/w/Special:Redirect/file/${encodeURIComponent(filename)}?width=64`}
+function flattenDrops(){drops=(data?.teams||[]).flatMap((team,teamIndex)=>(team.drops||[]).map((drop,rowIndex)=>({...drop,teamIndex,teamNumber:team.number||`Team ${teamIndex+1}`,teamName:team.name||`Team ${teamIndex+1}`,rowIndex}))).sort((a,b)=>{const an=Number(a.dropNumber),bn=Number(b.dropNumber);if(Number.isFinite(an)&&Number.isFinite(bn)&&an!==bn)return bn-an;if(Number.isFinite(bn)&&!Number.isFinite(an))return 1;if(Number.isFinite(an)&&!Number.isFinite(bn))return-1;return b.rowIndex-a.rowIndex})}
+function renderFilters(){const current=state.team;$('teamFilter').innerHTML='<option value="all">All teams</option>'+(data?.teams||[]).map((t,i)=>`<option value="${i}">${esc(t.number)} — ${esc(t.name)}</option>`).join('');$('teamFilter').value=current==='all'||Number(current)<(data?.teams||[]).length?current:'all';if($('teamFilter').value!==current)state.team='all'}
+function render(){if(!data)return;const q=state.search.trim().toLowerCase();const visible=drops.filter(d=>(state.team==='all'||String(d.teamIndex)===state.team)&&(state.type==='all'||(state.type==='bingo'&&isBingo(d))||(state.type==='other'&&!isBingo(d)))&&(!q||[d.drop,d.member,d.teamName,d.teamNumber,d.tile,d.dropNumber].some(v=>String(v??'').toLowerCase().includes(q))));$('dropCount').textContent=drops.length.toLocaleString('en-GB');$('bingoCount').textContent=drops.filter(isBingo).length.toLocaleString('en-GB');$('teamCount').textContent=(data.teams||[]).length;$('resultCount').textContent=`Showing ${visible.length.toLocaleString('en-GB')} of ${drops.length.toLocaleString('en-GB')} drops`;$('dropRows').innerHTML=visible.length?visible.map(d=>`<tr><td class="drop-image-cell"><span class="drop-image-wrap"><img class="drop-image" loading="lazy" decoding="async" alt="${esc(d.drop)} detailed item" data-item-image="${esc(d.drop)}"></span></td><td class="drop-no">${d.dropNumber??'—'}</td><td class="item-name">${esc(d.drop)}</td><td class="member">${esc(d.member)}</td><td class="team-name"><span class="team-badge">${esc(d.teamNumber)}</span>${esc(d.teamName)}</td><td class="tile-name ${isBingo(d)?'':'not-bingo'}">${esc(d.tile||'Not assigned')}</td></tr>`).join(''):'<tr><td colspan="6" class="empty">No drops match the selected filters.</td></tr>';document.querySelectorAll('[data-item-image]').forEach(img=>{const wrap=img.closest('.drop-image-wrap');img.addEventListener('error',()=>{img.remove();wrap?.classList.add('missing')},{once:true});img.src=wikiDetailedImageUrl(img.dataset.itemImage)})}
+async function loadData(manual=false){if(manual){$('refreshBtn').disabled=true;$('refreshBtn').textContent='Refreshing…'}try{const r=await fetch(`/api/event?drops=${Date.now()}`,{cache:'no-store'}),b=await r.json().catch(()=>({}));if(!r.ok)throw new Error(b.error||`Event API returned ${r.status}`);data=b;flattenDrops();renderFilters();render();$('sheetLink').href=b.sheetUrl||'#';const d=b.refreshedAt?new Date(b.refreshedAt):new Date();$('liveStrip').classList.remove('error');$('liveStrip').innerHTML=`<span><strong>LIVE</strong> Combined drop log connected to Google Sheets</span><span>Workbook snapshot: ${d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'})}</span>`}catch(e){$('liveStrip').classList.add('error');$('liveStrip').innerHTML=`<span><strong>DATA ERROR</strong> ${esc(e.message)}</span><span>Unable to refresh drop history.</span>`}finally{if(manual){$('refreshBtn').disabled=false;$('refreshBtn').textContent='↻ Refresh data'}}}
+$('search').oninput=e=>{state.search=e.target.value;render()};$('teamFilter').onchange=e=>{state.team=e.target.value;render()};$('typeFilter').onchange=e=>{state.type=e.target.value;render()};$('refreshBtn').onclick=()=>loadData(true);loadData();setInterval(()=>loadData(false),60000);
+</script>
+</body>
+</html>

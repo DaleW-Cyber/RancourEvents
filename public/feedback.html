@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow,noarchive">
+<title>Rancour PvM — Event Feedback</title>
+<link rel="stylesheet" href="/feedback.css">
+</head>
+<body>
+<div class="page">
+<header class="masthead"><div class="crest" aria-label="Rancour PvM"></div><div><div class="kicker">Rancour PvM • Summer Bingo 2026</div><h1>Event Feedback</h1></div><div class="actions"><a class="btn" href="/">← Back to Bingo Site</a></div></header>
+<section class="intro"><h2>Help shape the next Rancour event</h2><p>This is our end-of-event feedback form for Summer Bingo 2026. Ratings help us compare what worked; written comments help us understand what to change.</p><div class="privacy"><strong>Anonymous by default.</strong> Your RSN/Discord name is optional. Leave it blank if you would rather submit anonymously.</div></section>
+<div class="progress-wrap"><div class="progress-label"><span>Feedback progress</span><span id="progressText">0% complete</span></div><div class="progress"><div id="progressFill"></div></div></div>
+<form id="feedbackForm" novalidate>
+<section class="section"><div class="section-title"><small>Section 1 of 5</small><h3>Overall Event</h3></div><div class="questions">
+<div class="question"><label class="q" for="identity">RSN / Discord name <span class="hint">Optional — leave blank to stay anonymous.</span></label><input id="identity" name="identity" type="text" maxlength="120" autocomplete="off"></div>
+<div class="question"><label class="q">1. Overall, how much did you enjoy Summer Bingo 2026? <span class="required">*</span></label><div class="scale" data-scale="enjoyment"></div></div>
+<div class="question"><label class="q">2. How likely are you to take part in another Rancour Bingo? <span class="required">*</span></label><div class="scale" data-scale="futureLikelihood"></div></div>
+<div class="question"><label class="q">3. How was the length of the event? <span class="required">*</span></label><div class="choice" data-choice="length" data-options="Too short|Slightly too short|About right|Slightly too long|Too long"></div></div>
+</div></section>
+<section class="section"><div class="section-title"><small>Section 2 of 5</small><h3>Bingo Board</h3></div><div class="questions">
+<div class="question"><label class="q">4. How was the overall difficulty of the Bingo board? <span class="required">*</span></label><div class="choice" data-choice="difficulty" data-options="Too easy|Slightly easy|About right|Slightly hard|Too hard"></div></div>
+<div class="question"><label class="q">5. How balanced did the tiles feel across different types of content? <span class="required">*</span></label><div class="scale" data-scale="balance" data-max="5"></div></div>
+<div class="question"><label class="q" for="enjoyedTiles">6. Were there any tiles you particularly enjoyed? Why?</label><textarea id="enjoyedTiles" name="enjoyedTiles" maxlength="4000"></textarea></div>
+<div class="question"><label class="q" for="dislikedTiles">7. Were there any tiles you disliked or would change/remove next time? Why?</label><textarea id="dislikedTiles" name="dislikedTiles" maxlength="4000"></textarea></div>
+</div></section>
+<section class="section"><div class="section-title"><small>Section 3 of 5</small><h3>Team Experience</h3></div><div class="questions">
+<div class="question"><label class="q">8. How fair did the teams feel at the start of the event? <span class="required">*</span></label><div class="scale" data-scale="teamFairness" data-max="5"></div></div>
+<div class="question"><label class="q">9. Did you feel you were able to meaningfully contribute to your team? <span class="required">*</span></label><div class="choice" data-choice="contribution" data-options="Yes, a lot|Yes, somewhat|Not really|No"></div></div>
+<div class="question"><label class="q">10. What encouraged you to participate most? <span class="required">*</span><span class="hint">Select all that apply.</span></label><div class="choice multi" data-multi="motivations" data-options="Team competition|Bingo board completion|Drops|Bounties|Clan interaction|Personal stats|Prizes|Other"></div></div>
+<div class="question"><label class="q">11. How clear were the rules, tile requirements and submission process? <span class="required">*</span></label><div class="scale" data-scale="rulesClarity" data-max="5"></div></div>
+</div></section>
+<section class="section"><div class="section-title"><small>Section 4 of 5</small><h3>Dashboard & Side Objectives</h3></div><div class="questions">
+<div class="question"><label class="q">12. How would you rate the event dashboard? <span class="required">*</span></label><div class="scale" data-scale="dashboardRating" data-max="5"></div></div>
+<div class="question"><label class="q">13. Which dashboard features did you find most useful?<span class="hint">Select all that apply.</span></label><div class="choice multi" data-multi="dashboardFeatures" data-options="Team board|Bingo Summary|Stats|Drop Log|Item List|Player profiles|Team standings|Bounties|Other"></div></div>
+<div class="question"><label class="q" for="missingDashboard">14. Was there anything you regularly wanted to see on the dashboard that wasn't available?</label><textarea id="missingDashboard" name="missingDashboard" maxlength="4000"></textarea></div>
+<div class="question"><label class="q">15. How useful was being able to see individual player drops, Drop Points and EHB? <span class="required">*</span></label><div class="choice" data-choice="playerStatsUsefulness" data-options="1|2|3|4|5|Did not use it"></div></div>
+<div class="question"><label class="q">16. How would you rate the bounty system? <span class="required">*</span></label><div class="choice" data-choice="bountyRating" data-options="1|2|3|4|5|Did not follow bounties"></div></div>
+<div class="question"><label class="q">17. Would you like more side objectives or individual awards in future Bingo events? <span class="required">*</span></label><div class="choice" data-choice="sideObjectives" data-options="Yes|No|Maybe"></div></div>
+</div></section>
+<section class="section"><div class="section-title"><small>Section 5 of 5</small><h3>Future Events</h3></div><div class="questions">
+<div class="question"><label class="q" for="keep">18. What should we definitely keep for the next Bingo?</label><textarea id="keep" name="keep" maxlength="4000"></textarea></div>
+<div class="question"><label class="q" for="improve">19. What is the single biggest thing we should improve for the next Bingo?</label><textarea id="improve" name="improve" maxlength="4000"></textarea></div>
+<div class="question"><label class="q" for="futureIdeas">20. What would you like to see in a future Rancour event?</label><textarea id="futureIdeas" name="futureIdeas" maxlength="4000"></textarea></div>
+<div class="question"><label class="q" for="other">21. Any other feedback for the event organisers?</label><textarea id="other" name="other" maxlength="4000"></textarea></div>
+</div></section>
+<div class="submit-panel"><p>Required questions are marked with *. Your answers will be submitted to the Rancour Summer Bingo Feedback Sheet.</p><button class="btn red" id="submitBtn" type="submit">Submit Feedback</button></div>
+<div class="status" id="status" role="status"></div>
+</form>
+<section class="success" id="success"><h2>Feedback submitted</h2><p>Thank you. Your response has been recorded.</p><a class="btn red" href="/">Return to Bingo Site</a></section>
+</div>
+<script src="/feedback-options.js"></script>
+<script src="/feedback-submit.js"></script>
+</body>
+</html>

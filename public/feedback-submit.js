@@ -33,6 +33,24 @@ if(!form.elements.teamSize){
   }
 }
 if(!requiredGroups.includes('teamSize'))requiredGroups.splice(7,0,'teamSize');
+
+function renumber(selector,number){
+  const node=form.querySelector(selector)?.closest('.question')?.querySelector('.question-number');
+  if(node)node.textContent=number;
+}
+renumber('[name="contribution"]','10');
+renumber('[name="motivations"]','11');
+renumber('[name="rulesClarity"]','12');
+renumber('[name="dashboardRating"]','13');
+renumber('[name="dashboardFeatures"]','14');
+renumber('#missingDashboard','15');
+renumber('[name="playerStatsUsefulness"]','16');
+renumber('[name="bountyRating"]','17');
+renumber('[name="sideObjectives"]','18');
+renumber('#keep','19');
+renumber('#improve','20');
+renumber('#futureIdeas','21');
+renumber('#other','22');
 form.dispatchEvent(new Event('change',{bubbles:true}));
 
 function payload(){

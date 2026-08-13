@@ -1,6 +1,7 @@
 import express from 'express';
 import { parse } from 'csv-parse/sync';
 import { readFile } from 'node:fs/promises';
+import { registerFeedbackRoutes } from './feedback.js';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -519,6 +520,7 @@ app.get('/items', async (_req,res,next) => {
   try { res.type('html').send(await renderItemsPage()); }
   catch (error) { next(error); }
 });
+registerFeedbackRoutes(app);
 app.use(express.static('public'));
 app.get('*', (_req,res)=>res.status(404).sendFile(new URL('./public/stats.html', import.meta.url).pathname));
 app.listen(PORT, '0.0.0.0', ()=>console.log(`Rancour Events listening on ${PORT}`));

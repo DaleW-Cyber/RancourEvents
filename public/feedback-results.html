@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow,noarchive">
+<title>Rancour PvM — Feedback Results</title>
+<link rel="stylesheet" href="/feedback-results.css">
+</head>
+<body>
+<div class="page">
+<header class="masthead"><div class="crest" aria-label="Rancour PvM"></div><div><div class="kicker">Rancour PvM • Summer Bingo 2026</div><h1>Feedback Results</h1></div><div class="actions"><button class="btn" id="refreshBtn" type="button">↻ Refresh</button><a class="btn" href="/feedback/">Open Feedback Form</a><a class="btn red" href="/">← Bingo Site</a></div></header>
+<div class="live" id="live"><span><strong>LIVE</strong> Loading feedback responses…</span><span id="updated"></span></div>
+<div class="error" id="error"></div>
+<section class="cards" id="cards"></section>
+<section class="grid">
+  <article class="panel"><div class="panel-title">Enjoyment — 1 to 10</div><div class="panel-body"><div class="bars" id="enjoymentBars"></div></div></article>
+  <article class="panel"><div class="panel-title">Likelihood to join another Bingo — 1 to 10</div><div class="panel-body"><div class="bars" id="futureBars"></div></div></article>
+  <article class="panel"><div class="panel-title">Event Length</div><div class="panel-body"><div class="bars" id="lengthBars"></div></div></article>
+  <article class="panel"><div class="panel-title">Board Difficulty</div><div class="panel-body"><div class="bars" id="difficultyBars"></div></div></article>
+  <article class="panel"><div class="panel-title">Meaningful Team Contribution</div><div class="panel-body"><div class="bars" id="contributionBars"></div></div></article>
+  <article class="panel"><div class="panel-title">More Side Objectives / Individual Awards?</div><div class="panel-body"><div class="bars" id="sideBars"></div></div></article>
+  <article class="panel"><div class="panel-title">What Motivated Participation?</div><div class="panel-body"><div class="bars" id="motivationBars"></div></div></article>
+  <article class="panel"><div class="panel-title">Most Useful Dashboard Features</div><div class="panel-body"><div class="bars" id="featureBars"></div></div></article>
+  <article class="panel full"><div class="panel-title">Written Feedback</div><div class="panel-body"><div class="controls"><input class="search" id="commentSearch" type="search" placeholder="Search written feedback…"></div><div class="quotes" id="quotes"></div></div></article>
+  <article class="panel full"><div class="panel-title">All Responses</div><div class="panel-body"><div class="controls"><input class="search" id="responseSearch" type="search" placeholder="Search all responses…"></div><div class="table-wrap"><table class="raw"><thead id="rawHead"></thead><tbody id="rawBody"></tbody></table></div></div></article>
+</section>
+</div>
+<script src="/feedback-results.js"></script>
+</body>
+</html>

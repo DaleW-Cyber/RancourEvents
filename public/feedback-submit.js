@@ -2,6 +2,7 @@ const {$,$$,requiredNow,groupAnswered}=window.feedbackUi;
 const form=$('#feedbackForm'),status=$('#status'),submitBtn=$('#submitBtn');
 const value=name=>form.elements[name]?.value?.trim?.()||'';
 const list=name=>$$(`[name="${name}"]:checked`).map(el=>el.value);
+let storageReady=true;
 function payload(){return{
   identity:value('identity'),
   enjoyment:value('enjoyment'),
@@ -34,8 +35,22 @@ function payload(){return{
 }}
 function showStatus(message,type=''){status.textContent=message;status.className='status show '+type;status.scrollIntoView({behavior:'smooth',block:'center'})}
 function markMissing(missing){$$('.question.invalid').forEach(q=>q.classList.remove('invalid'));missing.forEach(name=>form.querySelector(`[name="${name}"]`)?.closest('.question')?.classList.add('invalid'))}
+async function checkStorage(){
+  try{
+    const response=await fetch(`/api/feedback-status?ts=${Date.now()}`,{cache:'no-store'});
+    if(!response.ok)return;
+    const body=await response.json().catch(()=>({}));
+    if(body.configured===false){
+      storageReady=false;
+      submitBtn.disabled=true;
+      showStatus('Feedback submission is temporarily unavailable because Google Sheets write access is not configured on the server. No answers have been lost — please try again once this is enabled.','error');
+    }
+  }catch(error){console.warn('Unable to check feedback storage status:',error)}
+}
+checkStorage();
 form.addEventListener('submit',async e=>{
   e.preventDefault();
+  if(!storageReady){showStatus('Feedback submission is currently unavailable because Google Sheets write access is not configured.','error');return}
   const missing=requiredNow().filter(name=>!groupAnswered(name));
   markMissing(missing);
   if(missing.length){showStatus('Please answer all required questions before submitting.','error');form.querySelector(`[name="${missing[0]}"]`)?.closest('.question')?.scrollIntoView({behavior:'smooth',block:'center'});return}
@@ -44,7 +59,8 @@ form.addEventListener('submit',async e=>{
     const response=await fetch('/api/feedback',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload())});
     const body=await response.json().catch(()=>({}));
     if(!response.ok)throw new Error(body.error||`Submission failed (${response.status})`);
+    if(!body.ok||!body.updatedRange)throw new Error('The server did not confirm that your feedback was saved to Google Sheets. Please try again.');
     form.style.display='none';document.querySelector('.progress-wrap').style.display='none';$('#success').classList.add('show');$('#success').scrollIntoView({behavior:'smooth',block:'center'});
   }catch(error){showStatus(error.message||'Unable to submit feedback. Please try again.','error')}
-  finally{submitBtn.disabled=false;submitBtn.textContent='Submit Feedback'}
+  finally{submitBtn.disabled=!storageReady;submitBtn.textContent='Submit Feedback'}
 });

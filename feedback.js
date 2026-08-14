@@ -6,6 +6,8 @@ import { parse } from 'csv-parse/sync';
 // Do not allow a stale deployment environment variable to redirect responses elsewhere.
 const FEEDBACK_SHEET_ID = '1q5d4ogALQ5qrNr0qz3godAX0TYHH14E53ShJ5VvPQyE';
 const FEEDBACK_SHEET_NAME = 'Responses';
+const FEEDBACK_PROXY_URL = process.env.FEEDBACK_PROXY_URL || 'http://worker.railway.internal:8080/internal/rancour-events/feedback';
+const FEEDBACK_PROXY_HEALTH_URL = `${FEEDBACK_PROXY_URL}/health`;
 const SERVICE_ACCOUNT_JSON = process.env.FEEDBACK_GOOGLE_SERVICE_ACCOUNT_JSON || process.env.GOOGLE_SERVICE_ACCOUNT_JSON || '';
 const SERVICE_ACCOUNT_EMAIL = process.env.FEEDBACK_GOOGLE_SERVICE_ACCOUNT_EMAIL || process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL || '';
 const SERVICE_ACCOUNT_PRIVATE_KEY = process.env.FEEDBACK_GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY || process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY || '';
@@ -46,7 +48,7 @@ async function getGoogleAccessToken(){
   const account=readServiceAccount();
   if(!account){const error=new Error('Feedback submission storage is not configured on the server.');error.code='FEEDBACK_NOT_CONFIGURED';throw error}
   const now=Math.floor(Date.now()/1000),header=base64Url(JSON.stringify({alg:'RS256',typ:'JWT'})),claim=base64Url(JSON.stringify({iss:account.client_email,scope:SHEETS_SCOPE,aud:GOOGLE_TOKEN_URL,iat:now,exp:now+3600})),unsigned=`${header}.${claim}`,signature=crypto.createSign('RSA-SHA256').update(unsigned).end().sign(account.private_key),assertion=`${unsigned}.${base64Url(signature)}`;
-  const response=await fetch(GOOGLE_TOKEN_URL,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({grant_type:'urn:ietf:params:oauth:grant-type:jwt-bearer',assertion})});
+  const response=await fetch(GOOGLE_TOKEN_URL,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({grant_type:'urn:ietf:params:oauth-type:jwt-bearer',assertion})});
   const payload=await response.json().catch(()=>({}));
   if(!response.ok||!payload.access_token)throw new Error(payload.error_description||payload.error||`Google OAuth returned ${response.status}`);
   tokenCache={accessToken:payload.access_token,expiresAt:Date.now()+Number(payload.expires_in||3600)*1000};
@@ -81,7 +83,17 @@ function feedbackRow(feedback,responseId){return[
   feedback.dropSubmissionMethod==='Discord'?feedback.discordNoPluginReason:'',feedback.dropSubmissionMethod==='RuneLite Plugin'?feedback.runelitePluginFeedback:'',
   feedback.keep,feedback.improve,feedback.futureIdeas,feedback.other,
 ]}
+async function appendFeedbackViaProxy(row){
+  const response=await fetch(FEEDBACK_PROXY_URL,{method:'POST',headers:{'Content-Type':'application/json','User-Agent':'RancourEvents/1.0 (+Private Feedback Proxy)'},body:JSON.stringify({row})});
+  const text=await response.text();
+  let payload={};
+  try{payload=text?JSON.parse(text):{}}catch{payload={}}
+  if(!response.ok)throw new Error(payload.error||text||`Feedback proxy returned ${response.status}`);
+  if(!payload.ok)throw new Error('Feedback proxy did not confirm that the response was saved.');
+  return payload.updatedRange||`${FEEDBACK_SHEET_NAME}!A:AD`;
+}
 async function appendFeedback(row){
+  if(!readServiceAccount())return appendFeedbackViaProxy(row);
   const accessToken=await getGoogleAccessToken();
   const range=encodeURIComponent(`${FEEDBACK_SHEET_NAME}!A:AD`);
   const url=`https://sheets.googleapis.com/v4/spreadsheets/${FEEDBACK_SHEET_ID}/values/${range}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS&includeValuesInResponse=true`;
@@ -119,9 +131,20 @@ async function fetchFeedbackRows(){
   }
   return fetchFeedbackRowsPublic();
 }
+async function feedbackStorageStatus(){
+  if(readServiceAccount())return{configured:true,mode:'direct-google-service-account'};
+  try{
+    const response=await fetch(FEEDBACK_PROXY_HEALTH_URL,{headers:{'User-Agent':'RancourEvents/1.0 (+Private Feedback Proxy)'},cache:'no-store'});
+    const body=await response.json().catch(()=>({}));
+    return{configured:Boolean(response.ok&&body.ok),mode:'railway-private-proxy'};
+  }catch(error){
+    console.error('Feedback proxy health check failed:',error.message);
+    return{configured:false,mode:'railway-private-proxy'};
+  }
+}
 
 export function registerFeedbackRoutes(app){
-  app.get('/api/feedback-status',(_req,res)=>{res.set('Cache-Control','no-store');return res.json({configured:Boolean(readServiceAccount()),sheetId:FEEDBACK_SHEET_ID,sheetName:FEEDBACK_SHEET_NAME})});
+  app.get('/api/feedback-status',async(_req,res)=>{const status=await feedbackStorageStatus();res.set('Cache-Control','no-store');return res.json({...status,sheetId:FEEDBACK_SHEET_ID,sheetName:FEEDBACK_SHEET_NAME})});
   app.post('/api/feedback',express.json({limit:'120kb'}),async(req,res)=>{
     try{
       const feedback=normaliseFeedback(req.body||{}),validationError=validateFeedback(feedback);if(validationError)return res.status(400).json({error:validationError});

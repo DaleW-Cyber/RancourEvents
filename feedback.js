@@ -108,4 +108,9 @@ export function registerFeedbackRoutes(app){
   });
   app.get('/feedback',(_req,res)=>res.sendFile(new URL('./public/feedback.html',import.meta.url).pathname));
   app.get('/feedback-results',(_req,res)=>res.sendFile(new URL('./public/feedback-results.html',import.meta.url).pathname));
+
+  setTimeout(async()=>{
+    const status=await feedbackStorageStatus();
+    console.log(`Feedback storage startup check: ${status.configured?'READY':'NOT READY'} via ${status.mode}.`);
+  },1500);
 }

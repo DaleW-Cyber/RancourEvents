@@ -5,13 +5,6 @@
   if(!form||!status||!submitBtn)return;
 
   const all=selector=>[...document.querySelectorAll(selector)];
-  const value=name=>{
-    const field=form.elements[name];
-    if(!field)return'';
-    if(typeof field.value==='string')return field.value.trim();
-    return'';
-  };
-  const list=name=>all(`[name="${name}"]:checked`).map(el=>el.value);
   const selected=name=>{
     const nodes=all(`[name="${name}"]`);
     if(!nodes.length)return'';
@@ -19,6 +12,13 @@
     if(nodes[0].type==='checkbox')return nodes.filter(node=>node.checked).map(node=>node.value);
     return String(nodes[0].value||'').trim();
   };
+  // Do not use form.elements[name] here. Names such as "length" collide with
+  // built-in collection properties and can return a number instead of the field.
+  const value=name=>{
+    const result=selected(name);
+    return Array.isArray(result)?'':String(result||'').trim();
+  };
+  const list=name=>all(`[name="${name}"]:checked`).map(el=>el.value);
   const baseRequired=['enjoyment','futureLikelihood','length','difficulty','balance','favouriteTile','favouriteTileWhy','leastFavouriteTile','leastFavouriteTileWhy','teamFairness','teamSize','contribution','motivations','rulesClarity','dashboardRating','playerStatsUsefulness','sideObjectives','dropSubmissionMethod'];
   const fieldLabels={
     enjoyment:'Q1 — Overall enjoyment',
@@ -99,9 +99,6 @@
     missing.forEach(name=>form.querySelector(`[name="${name}"]`)?.closest('.question')?.classList.add('invalid'));
   };
 
-  // Range controls always have a real midpoint value. Initialise their display and
-  // progress state so the visible default is treated as a valid answer even if the
-  // user is happy with the midpoint and never drags the slider.
   all('input[type="range"][name]').forEach(input=>{
     if(input.dataset.answered!=='true')input.dispatchEvent(new Event('input',{bubbles:true}));
   });

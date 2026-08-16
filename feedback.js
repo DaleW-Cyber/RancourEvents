@@ -4,8 +4,12 @@ import { parse } from 'csv-parse/sync';
 
 const FEEDBACK_SHEET_ID = '1q5d4ogALQ5qrNr0qz3godAX0TYHH14E53ShJ5VvPQyE';
 const FEEDBACK_SHEET_NAME = 'Responses';
-const FEEDBACK_PROXY_URL = process.env.FEEDBACK_PROXY_URL || 'http://worker.railway.internal:8080/internal/rancour-events/feedback';
-const FEEDBACK_PROXY_HEALTH_URL = `${FEEDBACK_PROXY_URL}/health`;
+const SERVICE_ACCOUNT_JSON = process.env.FEEDBACK_GOOGLE_SERVICE_ACCOUNT_JSON || process.env.GOOGLE_SERVICE_ACCOUNT_JSON || '';
+const SERVICE_ACCOUNT_EMAIL = process.env.FEEDBACK_GOOGLE_SERVICE_ACCOUNT_EMAIL || process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL || '';
+const SERVICE_ACCOUNT_PRIVATE_KEY = process.env.FEEDBACK_GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY || process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY || '';
+const SHEETS_SCOPE = 'https://www.googleapis.com/auth/spreadsheets';
+const GOOGLE_TOKEN_URL = 'https://oauth2.googleapis.com/token';
+let tokenCache = { accessToken: '', expiresAt: 0 };
 
 const fieldOrder = [
   'identity','enjoyment','futureLikelihood','length','difficulty','balance','favouriteTile','favouriteTileWhy',
@@ -21,6 +25,38 @@ const requiredFields = [
   'playerStatsUsefulness','sideObjectives','dropSubmissionMethod',
 ];
 
+function base64Url(value){
+  const buffer=Buffer.isBuffer(value)?value:Buffer.from(value);
+  return buffer.toString('base64').replace(/=/g,'').replace(/\+/g,'-').replace(/\//g,'_');
+}
+function readServiceAccount(){
+  if(SERVICE_ACCOUNT_JSON){
+    try{
+      const value=JSON.parse(SERVICE_ACCOUNT_JSON);
+      if(value?.client_email&&value?.private_key)return value;
+    }catch(error){console.error('Invalid feedback service-account JSON:',error.message)}
+  }
+  if(SERVICE_ACCOUNT_EMAIL&&SERVICE_ACCOUNT_PRIVATE_KEY){
+    return {client_email:SERVICE_ACCOUNT_EMAIL,private_key:SERVICE_ACCOUNT_PRIVATE_KEY.replace(/\\n/g,'\n')};
+  }
+  return null;
+}
+async function getGoogleAccessToken(){
+  if(tokenCache.accessToken&&Date.now()<tokenCache.expiresAt-60000)return tokenCache.accessToken;
+  const account=readServiceAccount();
+  if(!account){const error=new Error('Feedback submission storage is not configured on the server.');error.code='FEEDBACK_NOT_CONFIGURED';throw error}
+  const now=Math.floor(Date.now()/1000);
+  const header=base64Url(JSON.stringify({alg:'RS256',typ:'JWT'}));
+  const claim=base64Url(JSON.stringify({iss:account.client_email,scope:SHEETS_SCOPE,aud:GOOGLE_TOKEN_URL,iat:now,exp:now+3600}));
+  const unsigned=`${header}.${claim}`;
+  const signature=crypto.createSign('RSA-SHA256').update(unsigned).end().sign(account.private_key);
+  const assertion=`${unsigned}.${base64Url(signature)}`;
+  const response=await fetch(GOOGLE_TOKEN_URL,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({grant_type:'urn:ietf:params:oauth:grant-type:jwt-bearer',assertion})});
+  const payload=await response.json().catch(()=>({}));
+  if(!response.ok||!payload.access_token)throw new Error(payload.error_description||payload.error||`Google OAuth returned ${response.status}`);
+  tokenCache={accessToken:payload.access_token,expiresAt:Date.now()+Number(payload.expires_in||3600)*1000};
+  return tokenCache.accessToken;
+}
 function cleanText(value,max=4000){return String(value??'').replace(/\u0000/g,'').trim().slice(0,max)}
 function cleanList(value){if(!Array.isArray(value))return[];return[...new Set(value.map(item=>cleanText(item,120)).filter(Boolean))].slice(0,20)}
 function normaliseFeedback(body){const result={};for(const key of fieldOrder)result[key]=listFields.has(key)?cleanList(body?.[key]):cleanText(body?.[key]);return result}
@@ -50,17 +86,15 @@ function feedbackRow(feedback,responseId){return[
   feedback.dropSubmissionMethod==='Discord'?feedback.discordNoPluginReason:'',feedback.dropSubmissionMethod==='RuneLite Plugin'?feedback.runelitePluginFeedback:'',
   feedback.keep,feedback.improve,feedback.futureIdeas,feedback.other,
 ]}
-async function proxyRequest(url,options={}){
-  try{return await fetch(url,{...options,signal:AbortSignal.timeout(15000)})}
-  catch(error){throw new Error(`Feedback storage service is unavailable: ${error.message}`)}
-}
 async function appendFeedback(row){
-  const response=await proxyRequest(FEEDBACK_PROXY_URL,{method:'POST',headers:{'Content-Type':'application/json','User-Agent':'RancourEvents/1.0 (+Private Feedback Proxy)'},body:JSON.stringify({row})});
-  const text=await response.text();
-  let payload={};try{payload=text?JSON.parse(text):{}}catch{payload={}}
-  if(!response.ok)throw new Error(payload.error||text||`Feedback storage returned ${response.status}`);
-  if(!payload.ok)throw new Error('Feedback storage did not confirm that the response was saved.');
-  return payload.updatedRange||`${FEEDBACK_SHEET_NAME}!A:AD`;
+  const accessToken=await getGoogleAccessToken();
+  const range=encodeURIComponent(`${FEEDBACK_SHEET_NAME}!A:AD`);
+  const url=`https://sheets.googleapis.com/v4/spreadsheets/${FEEDBACK_SHEET_ID}/values/${range}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS&includeValuesInResponse=true`;
+  const response=await fetch(url,{method:'POST',headers:{Authorization:`Bearer ${accessToken}`,'Content-Type':'application/json'},body:JSON.stringify({values:[row]})});
+  const payload=await response.json().catch(()=>({}));
+  if(!response.ok)throw new Error(payload?.error?.message||`Google Sheets returned ${response.status}`);
+  if(Number(payload?.updates?.updatedRows)!==1)throw new Error('Google Sheets did not confirm that the feedback row was saved.');
+  return payload?.updates?.updatedRange||'';
 }
 function recordsFromValues(values){
   const rows=Array.isArray(values)?values:[];
@@ -68,7 +102,15 @@ function recordsFromValues(values){
   const records=rows.slice(1).filter(row=>row.some(value=>String(value||'').trim())).map(row=>Object.fromEntries(headers.map((header,index)=>[header,String(row[index]??'').trim()])));
   return{headers,records};
 }
-async function fetchFeedbackRows(){
+async function fetchFeedbackRowsAuthenticated(){
+  const accessToken=await getGoogleAccessToken();
+  const range=encodeURIComponent(`${FEEDBACK_SHEET_NAME}!A:AD`);
+  const response=await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${FEEDBACK_SHEET_ID}/values/${range}`,{headers:{Authorization:`Bearer ${accessToken}`}});
+  const payload=await response.json().catch(()=>({}));
+  if(!response.ok)throw new Error(payload?.error?.message||`Google Sheets returned ${response.status}`);
+  return recordsFromValues(payload.values||[]);
+}
+async function fetchFeedbackRowsPublic(){
   const params=new URLSearchParams({tqx:'out:csv',sheet:FEEDBACK_SHEET_NAME,range:'A:AD'});
   const url=`https://docs.google.com/spreadsheets/d/${FEEDBACK_SHEET_ID}/gviz/tq?${params}`;
   const response=await fetch(url,{redirect:'follow',headers:{'User-Agent':'RancourEvents/1.0 (+Feedback Results)'}});
@@ -77,14 +119,20 @@ async function fetchFeedbackRows(){
   if(text.trim().startsWith('<!DOCTYPE html')||text.includes('accounts.google.com'))throw new Error('Feedback Sheet is not anonymously readable.');
   return recordsFromValues(parse(text,{relax_column_count:true,skip_empty_lines:true}));
 }
+async function fetchFeedbackRows(){
+  if(readServiceAccount()){
+    try{return await fetchFeedbackRowsAuthenticated()}catch(error){console.error('Authenticated feedback results read failed, falling back to public CSV:',error.message)}
+  }
+  return fetchFeedbackRowsPublic();
+}
 async function feedbackStorageStatus(){
+  if(!readServiceAccount())return{configured:false,mode:'google-sheets-direct'};
   try{
-    const response=await proxyRequest(FEEDBACK_PROXY_HEALTH_URL,{headers:{'User-Agent':'RancourEvents/1.0 (+Private Feedback Proxy)'},cache:'no-store'});
-    const body=await response.json().catch(()=>({}));
-    return{configured:Boolean(response.ok&&body.ok),mode:'railway-private-proxy'};
+    await fetchFeedbackRowsAuthenticated();
+    return{configured:true,mode:'google-sheets-direct'};
   }catch(error){
-    console.error('Feedback proxy health check failed:',error.message);
-    return{configured:false,mode:'railway-private-proxy'};
+    console.error('Feedback Google Sheets check failed:',error.message);
+    return{configured:false,mode:'google-sheets-direct'};
   }
 }
 
@@ -99,7 +147,7 @@ export function registerFeedbackRoutes(app){
       return res.status(201).json({ok:true,responseId,updatedRange,sheetId:FEEDBACK_SHEET_ID});
     }catch(error){
       console.error('Feedback submission failed:',error);
-      return res.status(502).json({error:error.message||'Unable to submit feedback.'});
+      return res.status(error.code==='FEEDBACK_NOT_CONFIGURED'?503:502).json({error:error.message||'Unable to submit feedback.'});
     }
   });
   app.get('/api/feedback-results',async(_req,res)=>{
@@ -108,7 +156,6 @@ export function registerFeedbackRoutes(app){
   });
   app.get('/feedback',(_req,res)=>res.sendFile(new URL('./public/feedback.html',import.meta.url).pathname));
   app.get('/feedback-results',(_req,res)=>res.sendFile(new URL('./public/feedback-results.html',import.meta.url).pathname));
-
   setTimeout(async()=>{
     const status=await feedbackStorageStatus();
     console.log(`Feedback storage startup check: ${status.configured?'READY':'NOT READY'} via ${status.mode}.`);

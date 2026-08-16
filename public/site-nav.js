@@ -1,7 +1,7 @@
 (()=>{
   const mount=()=>{
     const path=location.pathname;
-    const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#039;'}[c]));
+    const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
 
     const mastKicker=document.querySelector('.masthead .kicker');
     if(mastKicker){
@@ -18,6 +18,64 @@
         .replace(/\s{2,}/g,' ')
         .trim();
     }
+
+    const masthead=document.querySelector('.masthead');
+    if(masthead){
+      const countdownStyle=document.createElement('style');
+      countdownStyle.textContent=`
+        .event-countdown{display:inline-flex;align-items:center;gap:9px;margin-top:5px;padding:4px 8px;border:1px solid rgba(197,148,60,.45);background:rgba(10,8,6,.38);color:#c8ad72;font-size:10px;letter-spacing:.08em;text-transform:uppercase;white-space:nowrap}
+        .event-countdown strong{color:#f0d28f;font-size:14px;letter-spacing:.06em;text-shadow:1px 1px #000;font-variant-numeric:tabular-nums}
+        .event-countdown.event-ended{border-color:rgba(159,36,40,.7);background:rgba(91,20,24,.38)}
+        .event-countdown.event-ended strong{color:#e8b0a6}
+        .mast-actions .feedback-action{text-decoration:none;background:linear-gradient(#a52c31,#63181c);border-color:#aa7c4b}
+        @media(max-width:820px){.event-countdown{white-space:normal;flex-wrap:wrap}}
+      `;
+      document.head.appendChild(countdownStyle);
+      const titleBlock=masthead.querySelector('h1')?.parentElement;
+      if(titleBlock&&!titleBlock.querySelector('.event-countdown')){
+        const countdown=document.createElement('div');
+        countdown.className='event-countdown';
+        countdown.setAttribute('role','timer');
+        countdown.setAttribute('aria-live','polite');
+        countdown.innerHTML='<span>Event ends in</span><strong>Calculating…</strong>';
+        titleBlock.appendChild(countdown);
+        const endAt=new Date('2026-08-17T01:00:00+01:00').getTime();
+        const value=countdown.querySelector('strong');
+        const label=countdown.querySelector('span');
+        const updateCountdown=()=>{
+          const remaining=endAt-Date.now();
+          if(remaining<=0){
+            countdown.classList.add('event-ended');
+            label.textContent='Summer Bingo 2026';
+            value.textContent='Event ended';
+            return false;
+          }
+          const totalSeconds=Math.floor(remaining/1000);
+          const days=Math.floor(totalSeconds/86400);
+          const hours=Math.floor((totalSeconds%86400)/3600);
+          const minutes=Math.floor((totalSeconds%3600)/60);
+          const seconds=totalSeconds%60;
+          value.textContent=`${days?`${days}d `:''}${String(hours).padStart(2,'0')}h ${String(minutes).padStart(2,'0')}m ${String(seconds).padStart(2,'0')}s`;
+          return true;
+        };
+        updateCountdown();
+        const timer=setInterval(()=>{if(!updateCountdown())clearInterval(timer)},1000);
+      }
+    }
+
+    if(path==='/bingo'){
+      const mastActions=document.querySelector('.mast-actions');
+      if(mastActions&&!mastActions.querySelector('[data-feedback-action]')){
+        const feedback=document.createElement('a');
+        feedback.className='osrs-btn feedback-action';
+        feedback.href='/feedback';
+        feedback.dataset.feedbackAction='true';
+        feedback.textContent='Feedback';
+        const boardButton=document.getElementById('boardBtn');
+        if(boardButton)mastActions.insertBefore(feedback,boardButton);else mastActions.appendChild(feedback);
+      }
+    }
+
     if(path==='/'||path==='/stats'){
       const heroTitle=document.querySelector('.hero h2');
       if(heroTitle)heroTitle.textContent='Bingo Stats';
